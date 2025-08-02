@@ -1,0 +1,86 @@
+# Overview
+
+FitChallenge Pro is a 100-day body recomposition competition web application built with React, TypeScript, and Express. The app tracks contestants' body composition changes through DEXA scan uploads, implements gender-specific scoring algorithms, and provides competitive leaderboards. Users can register for the competition, upload and track multiple DEXA scans, view their progress over time, and compete with others in a fair scoring system.
+
+# User Preferences
+
+Preferred communication style: Simple, everyday language.
+
+# System Architecture
+
+## Frontend Architecture
+- **Framework**: React 18 with TypeScript using Vite as the build tool
+- **UI Library**: Shadcn/ui components built on top of Radix UI primitives
+- **Styling**: Tailwind CSS with custom CSS variables for theming
+- **State Management**: TanStack Query (React Query) for server state management
+- **Routing**: Wouter for lightweight client-side routing
+- **File Uploads**: Uppy.js for file upload functionality with S3 integration
+
+## Backend Architecture
+- **Framework**: Express.js with TypeScript running on Node.js
+- **Database ORM**: Drizzle ORM for type-safe database operations
+- **Database**: PostgreSQL (configured for Neon serverless)
+- **Authentication**: Replit Auth with OpenID Connect integration
+- **Session Management**: Express sessions with PostgreSQL storage
+- **File Storage**: Google Cloud Storage with custom ACL system
+
+## Database Schema
+- **Users Table**: Stores competition participant data including baseline measurements
+- **DEXA Scans Table**: Tracks multiple scan results per user with timestamps
+- **Scoring Data Table**: Caches calculated competition scores
+- **Sessions Table**: Manages user authentication sessions
+
+## Authentication & Authorization
+- **Authentication Provider**: Replit Auth using OpenID Connect
+- **Session Storage**: PostgreSQL-backed sessions with configurable TTL
+- **Authorization**: Custom middleware for protecting API routes
+- **User Management**: Automatic user creation and profile management
+
+## File Upload System
+- **Storage Backend**: Google Cloud Storage
+- **Upload Method**: Direct browser-to-cloud uploads using presigned URLs
+- **File Types**: Support for DEXA scan images and PDFs
+- **Access Control**: Custom ACL system for object-level permissions
+
+## API Architecture
+- **Style**: RESTful API with JSON responses
+- **Validation**: Zod schemas for request/response validation
+- **Error Handling**: Centralized error handling middleware
+- **Logging**: Request/response logging with performance metrics
+
+## Scoring System
+- **Algorithm**: Gender-specific body composition scoring
+- **Metrics**: Body fat percentage reduction and lean mass gain
+- **Leaderboard**: Real-time ranking system with fair competition mechanics
+- **Progress Tracking**: Timeline-based progress visualization
+
+# External Dependencies
+
+## Authentication Services
+- **Replit Auth**: Primary authentication provider using OpenID Connect
+- **Session Management**: connect-pg-simple for PostgreSQL session storage
+
+## Database Services
+- **Neon Database**: Serverless PostgreSQL database
+- **Connection Pooling**: @neondatabase/serverless for database connections
+
+## File Storage Services
+- **Google Cloud Storage**: Object storage for DEXA scan images
+- **Uppy.js**: Client-side file upload handling with S3 integration
+
+## UI Component Libraries
+- **Radix UI**: Accessible UI primitives for complex components
+- **Shadcn/ui**: Pre-built component library based on Radix UI
+- **Lucide Icons**: Icon library for consistent iconography
+
+## Development Tools
+- **Vite**: Build tool and development server
+- **TypeScript**: Type checking and development experience
+- **Tailwind CSS**: Utility-first CSS framework
+- **Drizzle Kit**: Database migration and schema management
+
+## Third-party Integrations
+- **TanStack Query**: Server state management and caching
+- **Recharts**: Data visualization for progress charts
+- **React Hook Form**: Form handling and validation
+- **Wouter**: Lightweight routing library
