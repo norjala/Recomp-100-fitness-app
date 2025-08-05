@@ -16,6 +16,8 @@ import NotFound from "@/pages/not-found";
 
 // Layout
 import { VerifiedRoute } from "@/lib/protected-route";
+import { Header } from "@/components/layout/header";
+import { MobileNav } from "@/components/layout/mobile-nav";
 
 function Router() {
   return (

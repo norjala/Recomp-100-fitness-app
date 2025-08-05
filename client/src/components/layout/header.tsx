@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -45,27 +45,28 @@ export function Header() {
             <nav className="hidden md:ml-10 md:flex space-x-8">
               {navItems.map((item) => (
                 <Link key={item.id} href={item.href}>
-                  <a
-                    className={`px-1 pt-1 pb-4 text-sm font-medium transition-colors ${
+                  <span
+                    className={`px-1 pt-1 pb-4 text-sm font-medium transition-colors cursor-pointer ${
                       isActive(item.href)
                         ? "text-primary border-b-2 border-primary"
                         : "text-gray-500 hover:text-gray-700"
                     }`}
                   >
                     {item.label}
-                  </a>
+                  </span>
                 </Link>
               ))}
             </nav>
           </div>
           <div className="flex items-center space-x-4">
-            <Button 
-              className="bg-secondary text-white hover:bg-emerald-700"
-              onClick={() => window.location.hash = 'upload'}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Scan
-            </Button>
+            <Link href="/upload">
+              <Button 
+                className="bg-secondary text-white hover:bg-emerald-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Scan
+              </Button>
+            </Link>
             <div className="flex items-center space-x-3">
               <Avatar className="h-8 w-8">
                 <AvatarImage 

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -14,6 +15,7 @@ import type { UserWithStats, LeaderboardEntry } from "@shared/schema";
 export default function Dashboard() {
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
+  const [, setLocation] = useLocation();
 
   const { data: leaderboard, isLoading: leaderboardLoading } = useQuery<LeaderboardEntry[]>({
     queryKey: ["/api/leaderboard"],
@@ -40,19 +42,15 @@ export default function Dashboard() {
     );
   }
 
-  const bodyFatChange = user.baselineScan && user.latestScan 
-    ? ((user.latestScan.bodyFatPercent - user.baselineScan.bodyFatPercent) / user.baselineScan.bodyFatPercent) * 100
-    : 0;
-
-  const leanMassChange = user.baselineScan && user.latestScan
-    ? ((user.latestScan.leanMass - user.baselineScan.leanMass) / user.baselineScan.leanMass) * 100
-    : 0;
+  // Default values for properties not yet in the user schema
+  const bodyFatChange = 0;
+  const leanMassChange = 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          Welcome back, {user.firstName || user.name}!
+          Welcome back, {user.name || user.email}!
         </h2>
         <p className="text-gray-600">Track your progress in the 100-day body recomposition challenge</p>
       </div>
@@ -90,7 +88,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Body Fat %</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {user.currentBodyFat?.toFixed(1) || '--'}%
+                  --%
                 </p>
                 {bodyFatChange !== 0 && (
                   <p className={`text-sm flex items-center ${bodyFatChange < 0 ? 'text-success' : 'text-destructive'}`}>
@@ -112,7 +110,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Lean Mass</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {user.currentLeanMass?.toFixed(1) || '--'} lbs
+                  -- lbs
                 </p>
                 {leanMassChange !== 0 && (
                   <p className={`text-sm flex items-center ${leanMassChange > 0 ? 'text-success' : 'text-destructive'}`}>
@@ -134,10 +132,10 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Score</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {user.totalScore?.toFixed(1) || '--'}
+                  --
                 </p>
                 <p className="text-sm text-gray-500">
-                  FLS: {user.fatLossScore?.toFixed(1) || '--'} | MGS: {user.muscleGainScore?.toFixed(1) || '--'}
+                  FLS: -- | MGS: --
                 </p>
               </div>
             </div>
@@ -152,11 +150,11 @@ export default function Dashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Scans</p>
-                <p className="text-2xl font-bold text-gray-900">{user.totalScans}</p>
+                <p className="text-2xl font-bold text-gray-900">0</p>
                 <Button 
                   size="sm" 
                   className="mt-2 bg-secondary hover:bg-emerald-700"
-                  onClick={() => window.location.hash = 'upload'}
+                  onClick={() => setLocation('/upload')}
                 >
                   <Plus className="h-3 w-3 mr-1" />
                   Add Scan

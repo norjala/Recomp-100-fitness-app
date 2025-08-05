@@ -1,6 +1,8 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { Redirect, Route } from "wouter";
+import { Header } from "@/components/layout/header";
+import { MobileNav } from "@/components/layout/mobile-nav";
 
 export function ProtectedRoute({
   path,
@@ -67,5 +69,15 @@ export function VerifiedRoute({
     );
   }
 
-  return <Route path={path} component={Component} />;
+  return (
+    <Route path={path}>
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="pb-16 md:pb-0">
+          <Component />
+        </div>
+        <MobileNav />
+      </div>
+    </Route>
+  );
 }
