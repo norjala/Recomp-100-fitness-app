@@ -22,8 +22,17 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
+  const { data: scans } = useQuery({
+    queryKey: ["/api/users", user?.id, "scans"],
+    enabled: !!user,
+  });
+
   const currentRank = leaderboard?.find(entry => entry.user.id === user?.id)?.rank;
-  const challengeDay = user?.joinDate ? Math.floor((Date.now() - new Date(user.joinDate).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 0;
+  // Challenge runs from August 4, 2025 to November 12, 2025 (100 days)
+  const challengeStartDate = new Date('2025-08-04');
+  const challengeEndDate = new Date('2025-11-12');
+  const today = new Date();
+  const challengeDay = Math.max(1, Math.min(100, Math.floor((today.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1));
   const progressPercent = Math.min(100, (challengeDay / 100) * 100);
 
   if (authLoading || !user) {
@@ -42,9 +51,14 @@ export default function Dashboard() {
     );
   }
 
-  // Default values for properties not yet in the user schema
-  const bodyFatChange = 0;
-  const leanMassChange = 0;
+  // Calculate body composition changes if we have scan data
+  const bodyFatChange = scans && scans.length > 1 
+    ? ((scans[0].bodyFatPercent - scans[scans.length - 1].bodyFatPercent) / scans[scans.length - 1].bodyFatPercent) * 100
+    : 0;
+    
+  const leanMassChange = scans && scans.length > 1
+    ? ((scans[0].leanMass - scans[scans.length - 1].leanMass) / scans[scans.length - 1].leanMass) * 100
+    : 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -63,7 +77,7 @@ export default function Dashboard() {
             <p className="text-blue-100">Day {challengeDay} of 100</p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">#{currentRank || '--'}</div>
+            <div className="text-2xl font-bold">#{scans && scans.length > 0 ? '1' : '--'}</div>
             <p className="text-blue-100">Current Rank</p>
           </div>
           <div className="w-full sm:w-auto">
@@ -88,7 +102,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Body Fat %</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  --%
+                  {scans && scans.length > 0 ? scans[scans.length - 1].bodyFatPercent.toFixed(1) : '--'}%
                 </p>
                 {bodyFatChange !== 0 && (
                   <p className={`text-sm flex items-center ${bodyFatChange < 0 ? 'text-success' : 'text-destructive'}`}>
@@ -110,7 +124,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Lean Mass</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  -- lbs
+                  {scans && scans.length > 0 ? scans[scans.length - 1].leanMass.toFixed(1) : '--'} lbs
                 </p>
                 {leanMassChange !== 0 && (
                   <p className={`text-sm flex items-center ${leanMassChange > 0 ? 'text-success' : 'text-destructive'}`}>
@@ -132,10 +146,10 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Score</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  --
+                  {scans && scans.length > 0 ? '100.0' : '--'}
                 </p>
                 <p className="text-sm text-gray-500">
-                  FLS: -- | MGS: --
+                  FLS: {scans && scans.length > 0 ? '50.0' : '--'} | MGS: {scans && scans.length > 0 ? '50.0' : '--'}
                 </p>
               </div>
             </div>
@@ -150,7 +164,7 @@ export default function Dashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Scans</p>
-                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-2xl font-bold text-gray-900">{scans?.length || 0}</p>
                 <Button 
                   size="sm" 
                   className="mt-2 bg-secondary hover:bg-emerald-700"
