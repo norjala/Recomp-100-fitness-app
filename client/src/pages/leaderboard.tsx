@@ -121,16 +121,16 @@ export default function Leaderboard() {
                       <div className="flex items-center">
                         <Avatar className="h-10 w-10">
                           <AvatarImage 
-                            src={entry.user.profileImageUrl || undefined} 
-                            alt={entry.user.name}
+                            src={undefined} 
+                            alt={entry.user.name || entry.user.email}
                           />
                           <AvatarFallback>
-                            {entry.user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                            {entry.user.name ? entry.user.name.split(' ').map(n => n[0]).join('').toUpperCase() : entry.user.email.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900 flex items-center">
-                            {entry.user.name}
+                            {entry.user.name || entry.user.email}
                             {isCurrentUser && (
                               <Badge className="ml-2 bg-primary text-white">You</Badge>
                             )}

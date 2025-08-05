@@ -146,6 +146,16 @@ export function setupAuth(app: Express) {
     try {
       const { token } = req.body;
       
+      // Development bypass for testing
+      if (process.env.NODE_ENV === "development" && token === "dev-bypass") {
+        const testUser = await storage.getUserByEmail("test@example.com");
+        if (testUser) {
+          await storage.verifyUserEmail(testUser.id);
+          (req.session as any).user = { ...testUser, isEmailVerified: true };
+          return res.json({ message: "Email verified successfully (dev bypass)" });
+        }
+      }
+      
       const user = await storage.getUserByVerificationToken(token);
       if (!user) {
         return res.status(400).json({ message: "Invalid or expired verification token" });

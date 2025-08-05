@@ -7,7 +7,7 @@ if (!process.env.SENDGRID_API_KEY) {
 const mailService = new MailService();
 mailService.setApiKey(process.env.SENDGRID_API_KEY!);
 
-const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@fitnessforge.com';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@example.com';
 const APP_URL = process.env.APP_URL || 'http://localhost:5000';
 
 interface EmailParams {
