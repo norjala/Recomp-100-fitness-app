@@ -292,28 +292,51 @@ export class DatabaseStorage implements IStorage {
     const baselineScan = await this.getBaselineScan(userId);
     const latestScan = await this.getLatestScan(userId);
 
-    if (!baselineScan || !latestScan) return;
+    if (!baselineScan) {
+      console.log(`No baseline scan found for user ${userId}`);
+      return;
+    }
+
+    // If no latest scan or only baseline scan exists, set scores to 0
+    if (!latestScan || baselineScan.id === latestScan.id) {
+      console.log(`Only baseline scan exists for user ${userId}, setting scores to 0`);
+      await this.upsertScoringData({
+        userId,
+        fatLossScore: 0,
+        muscleGainScore: 0,
+        totalScore: 0,
+        fatLossRaw: 0,
+        muscleGainRaw: 0,
+      });
+      return;
+    }
+
+    console.log(`Calculating scores for user ${userId}:`);
+    console.log(`Baseline: BF=${baselineScan.bodyFatPercent}%, LM=${baselineScan.leanMass}lbs`);
+    console.log(`Latest: BF=${latestScan.bodyFatPercent}%, LM=${latestScan.leanMass}lbs`);
 
     // Calculate raw scores
     const fatLossRaw = this.calculateFatLossScore(
       baselineScan.bodyFatPercent,
       latestScan.bodyFatPercent,
-      user.gender || "male", // Default to male if gender not set
+      user.gender || "male",
       baselineScan.bodyFatPercent
     );
 
     const muscleGainRaw = this.calculateMuscleGainScore(
       baselineScan.leanMass,
       latestScan.leanMass,
-      user.gender || "male" // Default to male if gender not set
+      user.gender || "male"
     );
 
-    // Store raw scores for now - normalization happens across all users
+    console.log(`Raw scores: FLS=${fatLossRaw}, MGS=${muscleGainRaw}`);
+
+    // Store raw scores
     await this.upsertScoringData({
       userId,
-      fatLossScore: fatLossRaw, // Will be normalized later
-      muscleGainScore: muscleGainRaw, // Will be normalized later
-      totalScore: fatLossRaw + muscleGainRaw, // Will be recalculated after normalization
+      fatLossScore: fatLossRaw,
+      muscleGainScore: muscleGainRaw,
+      totalScore: fatLossRaw + muscleGainRaw,
       fatLossRaw,
       muscleGainRaw,
     });

@@ -16,6 +16,10 @@ Preferred communication style: Simple, everyday language.
 - Implemented secure password hashing and session management
 - Added development bypass for email verification when SendGrid API has issues
 - Authentication system is fully functional with manual verification option
+- Fixed scoring system to calculate from actual DEXA scan data instead of hardcoded values
+- Implemented gender-specific body composition scoring algorithm
+- Updated challenge timeline to single 100-day competition (August 4 - November 12, 2025)
+- Dashboard now displays real calculated scores based on body fat percentage reduction and lean mass gains
 
 # System Architecture
 

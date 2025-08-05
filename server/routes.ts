@@ -86,6 +86,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user's scoring data
+  app.get('/api/scoring/:userId', requireAuth, async (req: any, res) => {
+    try {
+      const requestedUserId = req.params.userId;
+      const currentUserId = req.user.id;
+      
+      // Users can only view their own scoring data
+      if (requestedUserId !== currentUserId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const scoring = await storage.getScoringData(requestedUserId);
+      res.json(scoring);
+    } catch (error) {
+      console.error("Error fetching user scoring:", error);
+      res.status(500).json({ message: "Failed to fetch scoring data" });
+    }
+  });
+
   // Create new DEXA scan
   app.post('/api/scans', requireVerifiedEmail, async (req: any, res) => {
     try {

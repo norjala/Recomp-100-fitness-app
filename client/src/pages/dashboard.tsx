@@ -27,6 +27,11 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
+  const { data: userScore } = useQuery({
+    queryKey: ["/api/scoring", user?.id],
+    enabled: !!user,
+  });
+
   const currentRank = leaderboard?.find(entry => entry.user.id === user?.id)?.rank;
   // Challenge runs from August 4, 2025 to November 12, 2025 (100 days)
   const challengeStartDate = new Date('2025-08-04');
@@ -77,7 +82,7 @@ export default function Dashboard() {
             <p className="text-blue-100">Day {challengeDay} of 100</p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">#{scans && scans.length > 0 ? '1' : '--'}</div>
+            <div className="text-2xl font-bold">#{currentRank || (userScore && userScore.totalScore > 0 ? '1' : '--')}</div>
             <p className="text-blue-100">Current Rank</p>
           </div>
           <div className="w-full sm:w-auto">
@@ -146,10 +151,10 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Score</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {scans && scans.length > 0 ? '100.0' : '--'}
+                  {userScore ? userScore.totalScore.toFixed(1) : (scans && scans.length > 1 ? '0.0' : '--')}
                 </p>
                 <p className="text-sm text-gray-500">
-                  FLS: {scans && scans.length > 0 ? '50.0' : '--'} | MGS: {scans && scans.length > 0 ? '50.0' : '--'}
+                  FLS: {userScore ? userScore.fatLossScore.toFixed(1) : (scans && scans.length > 1 ? '0.0' : '--')} | MGS: {userScore ? userScore.muscleGainScore.toFixed(1) : (scans && scans.length > 1 ? '0.0' : '--')}
                 </p>
               </div>
             </div>

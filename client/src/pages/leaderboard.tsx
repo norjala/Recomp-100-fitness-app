@@ -19,19 +19,7 @@ export default function Leaderboard() {
     return <LeaderboardSkeleton />;
   }
 
-  // Create a mock leaderboard entry for demonstration since your data is there
-  const mockLeaderboard = currentUser ? [{
-    user: currentUser,
-    rank: 1,
-    totalScore: 100.0,
-    fatLossScore: 50.0,
-    muscleGainScore: 50.0,
-    bodyFatChange: -2.5,
-    leanMassChange: 3.2,
-    progressPercent: 85
-  }] : [];
-
-  const displayLeaderboard = leaderboard && leaderboard.length > 0 ? leaderboard : mockLeaderboard;
+  const displayLeaderboard = leaderboard || [];
 
   if (!displayLeaderboard || displayLeaderboard.length === 0) {
     return (
