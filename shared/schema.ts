@@ -53,6 +53,9 @@ export const dexaScans = pgTable("dexa_scans", {
   bodyFatPercent: real("body_fat_percent").notNull(),
   leanMass: real("lean_mass").notNull(), // in lbs
   totalWeight: real("total_weight").notNull(), // in lbs
+  fatMass: real("fat_mass").notNull(), // in lbs
+  rmr: real("rmr"), // Resting Metabolic Rate
+  scanName: text("scan_name"), // Name from the scan
   scanImagePath: text("scan_image_path"), // object storage path
   isBaseline: boolean("is_baseline").default(false).notNull(),
   notes: text("notes"), // Add notes field for DEXA scans
@@ -172,4 +175,6 @@ export type LeaderboardEntry = {
   bodyFatChange: number;
   leanMassChange: number;
   progressPercent: number;
+  displayName: string; // Name from DEXA scan or user account name
+  latestScan?: DexaScan;
 };

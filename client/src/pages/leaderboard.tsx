@@ -132,7 +132,7 @@ export default function Leaderboard() {
                         </Avatar>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900 flex items-center">
-                            {entry.user.name || entry.user.email}
+                            {entry.displayName}
                             {isCurrentUser && (
                               <Badge className="ml-2 bg-primary text-white">You</Badge>
                             )}

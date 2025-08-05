@@ -13,7 +13,7 @@ import {
   type LeaderboardEntry,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and, isNull } from "drizzle-orm";
+import { eq, desc, asc, and, isNull, isNotNull, ne } from "drizzle-orm";
 
 export interface IStorage {
   // User operations for email/password auth
@@ -259,6 +259,20 @@ export class DatabaseStorage implements IStorage {
       const baselineScan = await this.getBaselineScan(user.id);
       const latestScan = await this.getLatestScan(user.id);
 
+      // Get scan name from latest scan that has a name
+      const scansWithNames = await db
+        .select()
+        .from(dexaScans)
+        .where(and(
+          eq(dexaScans.userId, user.id),
+          isNotNull(dexaScans.scanName),
+          ne(dexaScans.scanName, '')
+        ))
+        .orderBy(desc(dexaScans.createdAt))
+        .limit(1);
+
+      const displayName = scansWithNames[0]?.scanName || user.name || 'Anonymous';
+
       let bodyFatChange = 0;
       let leanMassChange = 0;
       let progressPercent = 0;
@@ -282,6 +296,8 @@ export class DatabaseStorage implements IStorage {
         bodyFatChange,
         leanMassChange,
         progressPercent,
+        displayName,
+        latestScan,
       });
     }
 

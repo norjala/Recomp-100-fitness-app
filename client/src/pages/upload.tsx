@@ -30,8 +30,12 @@ export default function Upload() {
     bodyFatPercent: 0,
     leanMass: 0,
     totalWeight: 0,
+    fatMass: 0,
+    rmr: 0,
+    scanName: '',
     scanImagePath: undefined as string | undefined,
     isBaseline: false,
+    notes: '',
   });
   
   const [uploadedScanId, setUploadedScanId] = useState<string | null>(null);
@@ -59,8 +63,12 @@ export default function Upload() {
         bodyFatPercent: 0,
         leanMass: 0,
         totalWeight: 0,
+        fatMass: 0,
+        rmr: 0,
+        scanName: '',
         scanImagePath: undefined as string | undefined,
         isBaseline: false,
+        notes: '',
       });
     },
     onError: (error) => {
@@ -177,6 +185,9 @@ export default function Upload() {
           bodyFatPercent: extractedData.bodyFatPercent || 0,
           leanMass: extractedData.leanMass || 0,
           totalWeight: extractedData.totalWeight || 0,
+          fatMass: extractedData.fatMass || 0,
+          rmr: extractedData.rmr || 0,
+          scanName: extractedData.scanName || '',
         }));
 
         toast({
@@ -319,9 +330,12 @@ export default function Upload() {
                   <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md text-left">
                     <h5 className="text-sm font-medium text-green-800 mb-2">Extracted Data</h5>
                     <div className="text-xs text-green-700 space-y-1">
+                      {extractedData.scanName && <div>Name: {extractedData.scanName}</div>}
                       <div>Body Fat: {extractedData.bodyFatPercent}%</div>
                       <div>Lean Mass: {extractedData.leanMass} lbs</div>
                       <div>Total Weight: {extractedData.totalWeight} lbs</div>
+                      <div>Fat Mass: {extractedData.fatMass} lbs</div>
+                      {extractedData.rmr && <div>RMR: {extractedData.rmr} cal/day</div>}
                       <div>Confidence: {Math.round(extractedData.confidence * 100)}%</div>
                     </div>
                   </div>
@@ -350,6 +364,17 @@ export default function Upload() {
                     value={formData.scanDate}
                     onChange={(e) => handleInputChange('scanDate', e.target.value)}
                     required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="scanName">Name</Label>
+                  <Input
+                    id="scanName"
+                    type="text"
+                    placeholder="Enter name (extracted from scan if available)"
+                    value={formData.scanName || ''}
+                    onChange={(e) => handleInputChange('scanName', e.target.value)}
                   />
                 </div>
                 
@@ -393,6 +418,42 @@ export default function Upload() {
                     value={formData.totalWeight || ''}
                     onChange={(e) => handleInputChange('totalWeight', parseFloat(e.target.value) || 0)}
                     required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="fatMass">Fat Mass (lbs)</Label>
+                  <Input
+                    id="fatMass"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="30.7"
+                    value={formData.fatMass || ''}
+                    onChange={(e) => handleInputChange('fatMass', parseFloat(e.target.value) || 0)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="rmr">Resting Metabolic Rate (RMR)</Label>
+                  <Input
+                    id="rmr"
+                    type="number"
+                    min="0"
+                    placeholder="1650 (calories/day)"
+                    value={formData.rmr || ''}
+                    onChange={(e) => handleInputChange('rmr', parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Input
+                    id="notes"
+                    placeholder="Additional notes about this scan..."
+                    value={formData.notes || ''}
+                    onChange={(e) => handleInputChange('notes', e.target.value)}
                   />
                 </div>
                 

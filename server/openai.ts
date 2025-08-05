@@ -12,6 +12,9 @@ export interface ExtractedDexaData {
   bodyFatPercent: number;
   leanMass: number;
   totalWeight: number;
+  fatMass: number;
+  rmr?: number;
+  scanName?: string;
   confidence: number;
 }
 
@@ -37,18 +40,25 @@ Extract these exact metrics:
 - Body Fat Percentage (as decimal, e.g., 19.1 for 19.1%)
 - Lean Mass in pounds (total lean body mass)
 - Total Weight in pounds (total body weight)
+- Fat Mass in pounds (total fat mass)
+- RMR (Resting Metabolic Rate) in calories/day if available
+- Patient/Scan Name if visible
 
 Common DEXA scan sections to look for:
 - "Total Body" summary section
 - "Composition" or "Body Composition" tables
-- Values labeled as "Fat %", "Lean Mass", "Total Mass"
-- Regional analysis summaries
+- Values labeled as "Fat %", "Lean Mass", "Total Mass", "Fat Mass"
+- RMR or metabolic rate sections
+- Patient information header
 
 Return JSON in this exact format:
 {
   "bodyFatPercent": number,
   "leanMass": number, 
   "totalWeight": number,
+  "fatMass": number,
+  "rmr": number (optional, calories per day),
+  "scanName": string (optional, patient name from scan),
   "confidence": number (0-1 scale)
 }
 
@@ -80,6 +90,9 @@ If you cannot find clear DEXA scan data, return confidence: 0.1 and reasonable e
     const bodyFatPercent = Number(result.bodyFatPercent) || 0;
     const leanMass = Number(result.leanMass) || 0;
     const totalWeight = Number(result.totalWeight) || 0;
+    const fatMass = Number(result.fatMass) || 0;
+    const rmr = result.rmr ? Number(result.rmr) : undefined;
+    const scanName = result.scanName ? String(result.scanName).trim() : undefined;
     const confidence = Math.min(Math.max(Number(result.confidence) || 0.1, 0), 1);
 
     // Basic validation checks
@@ -92,11 +105,17 @@ If you cannot find clear DEXA scan data, return confidence: 0.1 and reasonable e
     if (totalWeight < 80 || totalWeight > 400) {
       throw new Error("Invalid total weight extracted");
     }
+    if (fatMass < 5 || fatMass > 200) {
+      throw new Error("Invalid fat mass extracted");
+    }
 
     return {
       bodyFatPercent,
       leanMass,
       totalWeight,
+      fatMass,
+      rmr,
+      scanName,
       confidence
     };
 

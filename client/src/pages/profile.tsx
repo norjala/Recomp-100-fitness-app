@@ -94,6 +94,9 @@ export default function Profile() {
       bodyFatPercent: scan.bodyFatPercent,
       leanMass: scan.leanMass,
       totalWeight: scan.totalWeight,
+      fatMass: scan.fatMass || 0,
+      rmr: scan.rmr || 0,
+      scanName: scan.scanName || '',
       scanDate: new Date(scan.scanDate).toISOString().split('T')[0],
       isBaseline: scan.isBaseline,
       notes: scan.notes || '',
@@ -196,8 +199,16 @@ export default function Profile() {
                           {formatDate(scan.scanDate)}
                         </p>
                         <p className="text-sm text-gray-600">
+                          {scan.scanName && <span className="font-medium">{scan.scanName} - </span>}
                           BF: {scan.bodyFatPercent.toFixed(1)}% | LM: {scan.leanMass.toFixed(1)} lbs | Weight: {scan.totalWeight.toFixed(1)} lbs
                         </p>
+                        {(scan.fatMass || scan.rmr) && (
+                          <p className="text-xs text-gray-500">
+                            {scan.fatMass && `Fat Mass: ${scan.fatMass.toFixed(1)} lbs`}
+                            {scan.fatMass && scan.rmr && ' | '}
+                            {scan.rmr && `RMR: ${scan.rmr.toFixed(0)} cal/day`}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -283,6 +294,23 @@ export default function Profile() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="scanName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter name from scan"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -323,6 +351,47 @@ export default function Profile() {
                   )}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="fatMass"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fat Mass (lbs)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.1" 
+                          placeholder="30.7"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="rmr"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>RMR (cal/day)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="1650"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <FormField
                 control={form.control}
                 name="totalWeight"
@@ -336,6 +405,23 @@ export default function Profile() {
                         placeholder="160.4"
                         {...field}
                         onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Additional notes about this scan..."
+                        className="resize-none"
+                        {...field}
                       />
                     </FormControl>
                     <FormMessage />
