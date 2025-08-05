@@ -38,6 +38,7 @@ export const users = pgTable("users", {
   gender: varchar("gender", { enum: ["male", "female"] }),
   height: text("height"),
   startingWeight: real("starting_weight"),
+  profileImageUrl: text("profile_image_url"), // Add profile image URL field
   joinDate: timestamp("join_date").defaultNow().notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -54,6 +55,7 @@ export const dexaScans = pgTable("dexa_scans", {
   totalWeight: real("total_weight").notNull(), // in lbs
   scanImagePath: text("scan_image_path"), // object storage path
   isBaseline: boolean("is_baseline").default(false).notNull(),
+  notes: text("notes"), // Add notes field for DEXA scans
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

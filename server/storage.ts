@@ -38,6 +38,9 @@ export interface IStorage {
   getLatestScan(userId: string): Promise<DexaScan | undefined>;
   getBaselineScan(userId: string): Promise<DexaScan | undefined>;
   updateScanImagePath(scanId: string, imagePath: string): Promise<void>;
+  updateDexaScan(scanId: string, updates: Partial<InsertDexaScan>): Promise<DexaScan>;
+  deleteDexaScan(scanId: string): Promise<void>;
+  getDexaScan(scanId: string): Promise<DexaScan | null>;
   
   // Scoring operations
   upsertScoringData(data: InsertScoringData): Promise<ScoringData>;
@@ -456,9 +459,9 @@ export class DatabaseStorage implements IStorage {
 
   async updateDexaScan(scanId: string, updates: Partial<InsertDexaScan>): Promise<DexaScan> {
     const [result] = await db
-      .update(dexaScansTable)
+      .update(dexaScans)
       .set(updates)
-      .where(eq(dexaScansTable.id, scanId))
+      .where(eq(dexaScans.id, scanId))
       .returning();
 
     if (!result) {
@@ -478,8 +481,8 @@ export class DatabaseStorage implements IStorage {
     }
 
     await db
-      .delete(dexaScansTable)
-      .where(eq(dexaScansTable.id, scanId));
+      .delete(dexaScans)
+      .where(eq(dexaScans.id, scanId));
 
     // Recalculate user's score after deleting scan
     await this.calculateAndUpdateUserScore(scan.userId);
@@ -488,8 +491,8 @@ export class DatabaseStorage implements IStorage {
   async getDexaScan(scanId: string): Promise<DexaScan | null> {
     const [result] = await db
       .select()
-      .from(dexaScansTable)
-      .where(eq(dexaScansTable.id, scanId))
+      .from(dexaScans)
+      .where(eq(dexaScans.id, scanId))
       .limit(1);
 
     return result || null;

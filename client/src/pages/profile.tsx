@@ -106,7 +106,7 @@ export default function Profile() {
       scanId: editingScan.id,
       updates: {
         ...data,
-        scanDate: data.scanDate ? new Date(data.scanDate) : undefined,
+        scanDate: typeof data.scanDate === 'string' ? new Date(data.scanDate) : data.scanDate,
       },
     });
   };
@@ -273,7 +273,11 @@ export default function Profile() {
                   <FormItem>
                     <FormLabel>Scan Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input 
+                        type="date" 
+                        {...field}
+                        value={typeof field.value === 'string' ? field.value : field.value?.toISOString().split('T')[0] || ''}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -368,6 +372,7 @@ export default function Profile() {
                       <Textarea 
                         placeholder="Any additional notes about this scan..."
                         {...field}
+                        value={field.value || ''}
                       />
                     </FormControl>
                     <FormMessage />
