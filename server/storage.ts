@@ -62,7 +62,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Competition user operations  
-  async createCompetitionUser(userData: InsertUser): Promise<User> {
+  async createCompetitionUser(userData: InsertUser & { id: string }): Promise<User> {
     const [user] = await db
       .update(users)
       .set({
@@ -72,7 +72,7 @@ export class DatabaseStorage implements IStorage {
         startingWeight: userData.startingWeight,
         updatedAt: new Date(),
       })
-      .where(eq(users.id, userData.id!))
+      .where(eq(users.id, userData.id))
       .returning();
     return user;
   }
@@ -242,14 +242,14 @@ export class DatabaseStorage implements IStorage {
     const fatLossRaw = this.calculateFatLossScore(
       baselineScan.bodyFatPercent,
       latestScan.bodyFatPercent,
-      user.gender,
+      user.gender || "male", // Default to male if gender not set
       baselineScan.bodyFatPercent
     );
 
     const muscleGainRaw = this.calculateMuscleGainScore(
       baselineScan.leanMass,
       latestScan.leanMass,
-      user.gender
+      user.gender || "male" // Default to male if gender not set
     );
 
     // Store raw scores for now - normalization happens across all users

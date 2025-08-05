@@ -6,6 +6,14 @@ FitChallenge Pro is a 100-day body recomposition competition web application bui
 
 Preferred communication style: Simple, everyday language.
 
+# Recent Changes
+
+**Date: 2025-08-05**
+- Fixed database schema issue where required fields (name, gender, height, startingWeight) were causing authentication failures
+- Updated users table to make competition fields optional until profile completion
+- Modified storage layer to handle nullable gender field safely with defaults
+- Successfully resolved "null value in column 'name'" constraint violation error
+
 # System Architecture
 
 ## Frontend Architecture

@@ -31,11 +31,11 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  // Competition specific fields
-  name: text("name").notNull(),
-  gender: varchar("gender", { enum: ["male", "female"] }).notNull(),
-  height: text("height").notNull(),
-  startingWeight: real("starting_weight").notNull(),
+  // Competition specific fields - optional until profile is completed
+  name: text("name"),
+  gender: varchar("gender", { enum: ["male", "female"] }),
+  height: text("height"),
+  startingWeight: real("starting_weight"),
   joinDate: timestamp("join_date").defaultNow().notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -92,6 +92,12 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  // Make competition fields required when creating a competition profile
+  name: z.string().min(1, "Name is required"),
+  gender: z.enum(["male", "female"]),
+  height: z.string().min(1, "Height is required"),
+  startingWeight: z.number().positive("Starting weight must be positive"),
 });
 
 export const insertDexaScanSchema = createInsertSchema(dexaScans).omit({
