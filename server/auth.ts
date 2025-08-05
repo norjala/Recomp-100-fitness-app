@@ -148,11 +148,22 @@ export function setupAuth(app: Express) {
       
       // Development bypass for testing
       if (process.env.NODE_ENV === "development" && token === "dev-bypass") {
-        const testUser = await storage.getUserByEmail("test@example.com");
-        if (testUser) {
-          await storage.verifyUserEmail(testUser.id);
-          (req.session as any).user = { ...testUser, isEmailVerified: true };
+        const sessionUser = (req.session as any)?.user;
+        if (sessionUser && sessionUser.email) {
+          await storage.verifyUserEmail(sessionUser.id);
+          (req.session as any).user = { ...sessionUser, isEmailVerified: true };
           return res.json({ message: "Email verified successfully (dev bypass)" });
+        }
+        
+        // Also allow specific test emails
+        const testEmails = ["test@example.com", "nrj.prolific@gmail.com"];
+        for (const email of testEmails) {
+          const testUser = await storage.getUserByEmail(email);
+          if (testUser) {
+            await storage.verifyUserEmail(testUser.id);
+            (req.session as any).user = { ...testUser, isEmailVerified: true };
+            return res.json({ message: "Email verified successfully (dev bypass)" });
+          }
         }
       }
       

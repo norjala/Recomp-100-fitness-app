@@ -112,6 +112,18 @@ export default function VerifyEmailPage() {
                   )}
                   Resend Verification Email
                 </Button>
+                {process.env.NODE_ENV === "development" && (
+                  <Button
+                    onClick={() => verifyEmailMutation.mutate({ token: "dev-bypass" })}
+                    className="w-full"
+                    disabled={verifyEmailMutation.isPending}
+                  >
+                    {verifyEmailMutation.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Manual Verify (Dev Mode)
+                  </Button>
+                )}
                 <Button
                   onClick={() => setLocation('/auth')}
                   variant="ghost"

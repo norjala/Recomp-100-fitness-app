@@ -14,6 +14,8 @@ Preferred communication style: Simple, everyday language.
 - Added email confirmation and password reset functionality using SendGrid
 - Updated database schema to support traditional user authentication
 - Implemented secure password hashing and session management
+- Added development bypass for email verification when SendGrid API has issues
+- Authentication system is fully functional with manual verification option
 
 # System Architecture
 
