@@ -62,19 +62,19 @@ export default function Profile() {
             <Avatar className="h-24 w-24">
               <AvatarImage 
                 src={user.profileImageUrl || undefined} 
-                alt={user.name}
+                alt={user.name || user.email}
               />
               <AvatarFallback className="text-xl">
-                {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                {user.name?.split(' ').map(n => n[0]).join('').toUpperCase() || user.email.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
-              <h4 className="text-xl font-bold text-gray-900">{user.name}</h4>
-              <p className="text-gray-600 capitalize">{user.gender}</p>
+              <h4 className="text-xl font-bold text-gray-900">{user.name || user.email}</h4>
+              <p className="text-gray-600 capitalize">{user.gender || 'Not specified'}</p>
               <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
-                <span>Height: {user.height}</span>
-                <span>Starting Weight: {user.startingWeight} lbs</span>
-                <span>Joined: {formatDate(user.joinDate)}</span>
+                <span>Height: {user.height || 'Not specified'}</span>
+                <span>Starting Weight: {user.startingWeight || '--'} lbs</span>
+                <span>Joined: {formatDate(user.createdAt)}</span>
               </div>
             </div>
           </div>
