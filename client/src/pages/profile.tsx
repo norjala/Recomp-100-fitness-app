@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ import type { UserWithStats, DexaScan, InsertDexaScan } from "@shared/schema";
 export default function Profile() {
   const { toast } = useToast();
   const { user: authUser, isLoading: authLoading } = useAuth();
+  const [, setLocation] = useLocation();
   const [editingScan, setEditingScan] = useState<DexaScan | null>(null);
 
   const { data: user, isLoading: userLoading } = useQuery<UserWithStats>({
@@ -250,10 +252,10 @@ export default function Profile() {
                 <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                 <p className="text-gray-500">No scans uploaded yet</p>
                 <Button 
-                  className="mt-4"
-                  onClick={() => window.location.hash = 'upload'}
+                  className="mt-4 mobile-button"
+                  onClick={() => setLocation('/upload')}
                 >
-                  Upload Your First Scan
+                  Upload DEXA
                 </Button>
               </div>
             )}
