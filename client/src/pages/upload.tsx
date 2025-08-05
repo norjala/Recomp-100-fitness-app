@@ -137,11 +137,24 @@ export default function Upload() {
 
   const extractDataFromImage = async (file: File) => {
     setIsExtracting(true);
+    setExtractedData(null);
+    
     try {
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error("File too large. Please use an image under 10MB.");
+      }
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        throw new Error("Please select an image file (JPG, PNG, etc.)");
+      }
+
       // Convert file to base64
-      const base64 = await new Promise<string>((resolve) => {
+      const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Failed to read image file"));
         reader.readAsDataURL(file);
       });
 
@@ -149,26 +162,40 @@ export default function Upload() {
         imageBase64: base64,
       });
       
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to extract data");
+      }
+      
       const extractedData = await response.json();
       setExtractedData(extractedData);
       
-      // Auto-fill form with extracted data
-      setFormData(prev => ({
-        ...prev,
-        bodyFatPercent: extractedData.bodyFatPercent || 0,
-        leanMass: extractedData.leanMass || 0,
-        totalWeight: extractedData.totalWeight || 0,
-      }));
+      // Auto-fill form with extracted data only if confidence is reasonable
+      if (extractedData.confidence > 0.3) {
+        setFormData(prev => ({
+          ...prev,
+          bodyFatPercent: extractedData.bodyFatPercent || 0,
+          leanMass: extractedData.leanMass || 0,
+          totalWeight: extractedData.totalWeight || 0,
+        }));
 
-      toast({
-        title: "Data extracted successfully",
-        description: `Extracted: ${extractedData.bodyFatPercent}% BF, ${extractedData.leanMass}lbs LM, ${extractedData.totalWeight}lbs total (${Math.round(extractedData.confidence * 100)}% confidence)`,
-      });
+        toast({
+          title: "Data extracted successfully",
+          description: `Extracted: ${extractedData.bodyFatPercent}% BF, ${extractedData.leanMass}lbs LM, ${extractedData.totalWeight}lbs total (${Math.round(extractedData.confidence * 100)}% confidence)`,
+        });
+      } else {
+        toast({
+          title: "Low confidence extraction",
+          description: `Extracted data with ${Math.round(extractedData.confidence * 100)}% confidence. Please verify the values before saving.`,
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Failed to extract data:", error);
+      const errorMessage = error instanceof Error ? error.message : "Could not extract data from image. Please enter manually.";
       toast({
         title: "Extraction failed",
-        description: "Could not extract data from image. Please enter manually.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

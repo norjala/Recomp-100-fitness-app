@@ -21,38 +21,50 @@ export async function extractDexaScanData(base64Image: string): Promise<Extracte
   }
 
   try {
+    // Clean up base64 string and detect image format
+    const cleanBase64 = base64Image.replace(/^data:image\/[a-z]+;base64,/, "");
+    const imageFormat = base64Image.includes('data:image/png') ? 'png' : 'jpeg';
+    
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are a medical data extraction expert. Analyze DEXA scan reports and extract the following key metrics:
-- Body Fat Percentage (as a number, e.g., 19.1)
-- Lean Mass in pounds (as a number, e.g., 123.5)
-- Total Weight in pounds (as a number, e.g., 162.1)
+          content: `You are a medical data extraction expert specializing in DEXA scan analysis. Your task is to extract specific body composition metrics from DEXA scan reports or screenshots.
 
-Return the data as JSON in this exact format:
+Extract these exact metrics:
+- Body Fat Percentage (as decimal, e.g., 19.1 for 19.1%)
+- Lean Mass in pounds (total lean body mass)
+- Total Weight in pounds (total body weight)
+
+Common DEXA scan sections to look for:
+- "Total Body" summary section
+- "Composition" or "Body Composition" tables
+- Values labeled as "Fat %", "Lean Mass", "Total Mass"
+- Regional analysis summaries
+
+Return JSON in this exact format:
 {
   "bodyFatPercent": number,
   "leanMass": number, 
   "totalWeight": number,
-  "confidence": number (0-1 scale indicating extraction confidence)
+  "confidence": number (0-1 scale)
 }
 
-Look for common DEXA scan sections like "Body Composition", "Regional Analysis", or summary tables. Convert all weights to pounds if given in kg (multiply by 2.20462). Be precise with decimal places.`
+If you cannot find clear DEXA scan data, return confidence: 0.1 and reasonable estimates based on what's visible.`
         },
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: "Please extract the body fat percentage, lean mass (in pounds), and total weight (in pounds) from this DEXA scan report. Return the data in the specified JSON format."
+              text: "Extract body composition data from this DEXA scan image. Look for body fat percentage, lean mass (lbs), and total weight (lbs). Return as JSON."
             },
             {
               type: "image_url",
               image_url: {
-                url: `data:image/jpeg;base64,${base64Image}`
+                url: `data:image/${imageFormat};base64,${cleanBase64}`
               }
             }
           ],
@@ -64,22 +76,35 @@ Look for common DEXA scan sections like "Body Composition", "Regional Analysis",
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
     
-    // Validate the extracted data
-    if (typeof result.bodyFatPercent !== 'number' || 
-        typeof result.leanMass !== 'number' || 
-        typeof result.totalWeight !== 'number') {
-      throw new Error("Invalid data extracted from DEXA scan");
+    // Validate and sanitize the extracted data
+    const bodyFatPercent = Number(result.bodyFatPercent) || 0;
+    const leanMass = Number(result.leanMass) || 0;
+    const totalWeight = Number(result.totalWeight) || 0;
+    const confidence = Math.min(Math.max(Number(result.confidence) || 0.1, 0), 1);
+
+    // Basic validation checks
+    if (bodyFatPercent < 0 || bodyFatPercent > 50) {
+      throw new Error("Invalid body fat percentage extracted");
+    }
+    if (leanMass < 50 || leanMass > 300) {
+      throw new Error("Invalid lean mass extracted");
+    }
+    if (totalWeight < 80 || totalWeight > 400) {
+      throw new Error("Invalid total weight extracted");
     }
 
     return {
-      bodyFatPercent: Number(result.bodyFatPercent),
-      leanMass: Number(result.leanMass),
-      totalWeight: Number(result.totalWeight),
-      confidence: Number(result.confidence) || 0.8
+      bodyFatPercent,
+      leanMass,
+      totalWeight,
+      confidence
     };
 
   } catch (error) {
     console.error("Error extracting DEXA scan data:", error);
-    throw new Error("Failed to extract data from DEXA scan image");
+    if (error instanceof Error && error.message.includes("Invalid")) {
+      throw error;
+    }
+    throw new Error("Could not extract data from image. Please ensure it's a clear DEXA scan report and try again.");
   }
 }
