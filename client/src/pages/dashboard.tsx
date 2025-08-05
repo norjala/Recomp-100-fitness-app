@@ -72,24 +72,24 @@ export default function Dashboard() {
   const hasMinimumScans = scans && scans.length >= 2 && baselineScan && latestScan;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">
+    <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
+      <div className="mb-6 md:mb-8">
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
           Welcome back, {user.name || user.email}!
         </h2>
         <p className="text-gray-600">Track your progress in the 100-day body recomposition challenge</p>
       </div>
 
       {/* Challenge Status Banner */}
-      <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-6 text-white mb-8">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-4 md:p-6 text-white mb-6 md:mb-8">
+        <div className="flex items-center justify-between flex-wrap gap-3 md:gap-4">
           <div>
-            <h3 className="text-xl font-semibold mb-2">Challenge Progress</h3>
-            <p className="text-blue-100">Day {challengeDay} of 100</p>
+            <h3 className="text-lg md:text-xl font-semibold mb-1 md:mb-2">Challenge Progress</h3>
+            <p className="text-blue-100 text-sm md:text-base">Day {challengeDay} of 100</p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">#{hasMinimumScans && currentRank ? currentRank : '--'}</div>
-            <p className="text-blue-100">Current Rank</p>
+            <div className="text-xl md:text-2xl font-bold">#{hasMinimumScans && currentRank ? currentRank : '--'}</div>
+            <p className="text-blue-100 text-sm md:text-base">Current Rank</p>
           </div>
           <div className="w-full sm:w-auto">
             <div className="bg-white bg-opacity-20 rounded-full h-2">

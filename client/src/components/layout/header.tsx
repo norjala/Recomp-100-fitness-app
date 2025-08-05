@@ -58,8 +58,8 @@ export function Header() {
               ))}
             </nav>
           </div>
-          <div className="flex items-center space-x-4">
-            <Link href="/upload">
+          <div className="flex items-center space-x-2 md:space-x-4">
+            <Link href="/upload" className="hidden md:block">
               <Button 
                 className="bg-secondary text-white hover:bg-emerald-700"
               >
@@ -67,7 +67,12 @@ export function Header() {
                 New Scan
               </Button>
             </Link>
-            <div className="flex items-center space-x-3">
+            <Link href="/upload" className="md:hidden">
+              <Button size="sm" className="bg-secondary text-white hover:bg-emerald-700">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div className="flex items-center space-x-2 md:space-x-3">
               <Avatar className="h-8 w-8">
                 <AvatarImage 
                   src={user.profileImageUrl || undefined} 
@@ -77,14 +82,14 @@ export function Header() {
                   {(user.name || user.firstName || 'U').charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm font-medium text-gray-700">
+              <span className="hidden sm:block text-sm font-medium text-gray-700">
                 {user.firstName || user.name || 'User'}
               </span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 text-xs md:text-sm"
               >
                 Logout
               </Button>

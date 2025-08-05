@@ -255,20 +255,20 @@ export default function Upload() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Card>
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+    <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
+      <Card className="card-mobile">
+        <CardContent className="p-4 md:p-6">
+          <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 md:mb-6 flex items-center">
             <UploadIcon className="h-5 w-5 mr-2 text-secondary" />
             Upload DEXA Scan
           </h3>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
             {/* File Upload Area */}
             <div>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-secondary transition-colors">
-                <CloudUpload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h4 className="text-lg font-medium text-gray-900 mb-2">Upload DEXA Scan Report</h4>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 md:p-8 text-center hover:border-secondary transition-colors">
+                <CloudUpload className="h-10 md:h-12 w-10 md:w-12 text-gray-400 mx-auto mb-3 md:mb-4" />
+                <h4 className="text-base md:text-lg font-medium text-gray-900 mb-2">Upload DEXA Scan Report</h4>
                 <p className="text-sm text-gray-600 mb-4">
                   Upload your DEXA scan image/PDF and automatically extract the data
                 </p>

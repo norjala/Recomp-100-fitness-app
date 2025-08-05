@@ -62,8 +62,8 @@ export default function Leaderboard() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Card className="overflow-hidden">
+    <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
+      <Card className="overflow-hidden card-mobile">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -79,26 +79,26 @@ export default function Leaderboard() {
           </div>
         </div>
         
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto table-scroll">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Rank
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
                   Contestant
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Score
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Score
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider desktop-only">
                   Fat Loss
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider desktop-only">
                   Muscle Gain
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Progress
                 </th>
               </tr>
@@ -112,14 +112,14 @@ export default function Leaderboard() {
                     key={entry.user.id} 
                     className={`hover:bg-gray-50 ${isCurrentUser ? 'bg-blue-50' : ''}`}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <Badge className={`${getRankBadgeColor(entry.rank)} w-8 h-8 flex items-center justify-center rounded-full`}>
                           {entry.rank <= 3 ? getRankIcon(entry.rank) : entry.rank}
                         </Badge>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <Avatar className="h-10 w-10">
                           <AvatarImage 
@@ -130,25 +130,28 @@ export default function Leaderboard() {
                             {entry.user.name ? entry.user.name.split(' ').map(n => n[0]).join('').toUpperCase() : entry.user.email.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="ml-4">
+                        <div className="ml-3 md:ml-4">
                           <div className="text-sm font-medium text-gray-900 flex items-center">
-                            {entry.displayName}
+                            <span className="truncate max-w-[120px] md:max-w-none">{entry.displayName}</span>
                             {isCurrentUser && (
-                              <Badge className="ml-2 bg-primary text-white">You</Badge>
+                              <Badge className="ml-1 md:ml-2 bg-primary text-white text-xs">You</Badge>
                             )}
                           </div>
-                          <div className="text-sm text-gray-500 capitalize">
+                          <div className="text-xs md:text-sm text-gray-500 capitalize">
                             {entry.user.gender}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-bold text-gray-900">
                         {entry.totalScore.toFixed(1)}
                       </div>
+                      <div className="md:hidden text-xs text-gray-500">
+                        BF: {entry.bodyFatChange.toFixed(1)}% | LM: +{entry.leanMassChange.toFixed(1)}%
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap desktop-only">
                       <div className="text-sm text-gray-900">
                         {entry.fatLossScore.toFixed(1)}
                       </div>
@@ -156,7 +159,7 @@ export default function Leaderboard() {
                         {entry.bodyFatChange.toFixed(1)}% BF
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap desktop-only">
                       <div className="text-sm text-gray-900">
                         {entry.muscleGainScore.toFixed(1)}
                       </div>
@@ -164,11 +167,11 @@ export default function Leaderboard() {
                         +{entry.leanMassChange.toFixed(1)}% LM
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <Progress 
                           value={entry.progressPercent} 
-                          className="w-16 h-2 mr-2"
+                          className="w-12 md:w-16 h-2 mr-1 md:mr-2"
                         />
                         <span className="text-xs text-gray-500">
                           {Math.round(entry.progressPercent)}%

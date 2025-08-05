@@ -145,31 +145,31 @@ export default function Profile() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Card className="overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">My Profile & Progress</h3>
+    <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
+      <Card className="overflow-hidden card-mobile">
+        <div className="px-4 md:px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg md:text-xl font-semibold text-gray-900">My Profile & Progress</h3>
         </div>
         
-        <CardContent className="p-6">
+        <CardContent className="p-4 md:p-6">
           {/* Profile Header */}
-          <div className="flex items-center space-x-6 mb-8">
-            <Avatar className="h-24 w-24">
+          <div className="flex items-center space-x-4 md:space-x-6 mb-6 md:mb-8">
+            <Avatar className="h-20 md:h-24 w-20 md:w-24">
               <AvatarImage 
                 src={user.profileImageUrl || undefined} 
                 alt={user.name || user.email}
               />
-              <AvatarFallback className="text-xl">
+              <AvatarFallback className="text-lg md:text-xl">
                 {user.name?.split(' ').map(n => n[0]).join('').toUpperCase() || user.email.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <h4 className="text-xl font-bold text-gray-900">{user.name || user.email}</h4>
-              <p className="text-gray-600 capitalize">{user.gender || 'Not specified'}</p>
-              <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+            <div className="flex-1 min-w-0">
+              <h4 className="text-lg md:text-xl font-bold text-gray-900 truncate">{user.name || user.email}</h4>
+              <p className="text-gray-600 capitalize text-sm md:text-base">{user.gender || 'Not specified'}</p>
+              <div className="mt-2 flex flex-col md:flex-row md:items-center md:space-x-4 text-xs md:text-sm text-gray-500 space-y-1 md:space-y-0">
                 <span>Height: {user.height || 'Not specified'}</span>
-                <span>Starting Weight: {user.startingWeight || '--'} lbs</span>
-                <span>Joined: {formatDate(user.createdAt)}</span>
+                <span>Weight: {user.startingWeight || '--'} lbs</span>
+                <span className="hidden md:inline">Joined: {formatDate(user.createdAt)}</span>
               </div>
             </div>
           </div>
