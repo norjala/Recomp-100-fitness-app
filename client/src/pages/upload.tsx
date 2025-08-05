@@ -36,6 +36,8 @@ export default function Upload() {
   
   const [uploadedScanId, setUploadedScanId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedData, setExtractedData] = useState<any>(null);
 
   const createScanMutation = useMutation({
     mutationFn: async (data: ScanFormData) => {
@@ -133,6 +135,47 @@ export default function Upload() {
     }
   };
 
+  const extractDataFromImage = async (file: File) => {
+    setIsExtracting(true);
+    try {
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      const response = await apiRequest("POST", "/api/extract-dexa-data", {
+        imageBase64: base64,
+      });
+      
+      const extractedData = await response.json();
+      setExtractedData(extractedData);
+      
+      // Auto-fill form with extracted data
+      setFormData(prev => ({
+        ...prev,
+        bodyFatPercent: extractedData.bodyFatPercent || 0,
+        leanMass: extractedData.leanMass || 0,
+        totalWeight: extractedData.totalWeight || 0,
+      }));
+
+      toast({
+        title: "Data extracted successfully",
+        description: `Extracted: ${extractedData.bodyFatPercent}% BF, ${extractedData.leanMass}lbs LM, ${extractedData.totalWeight}lbs total (${Math.round(extractedData.confidence * 100)}% confidence)`,
+      });
+    } catch (error) {
+      console.error("Failed to extract data:", error);
+      toast({
+        title: "Extraction failed",
+        description: "Could not extract data from image. Please enter manually.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
   const handleGetUploadParameters = async () => {
     try {
       const response = await apiRequest("POST", "/api/objects/upload");
@@ -189,28 +232,73 @@ export default function Upload() {
                 <CloudUpload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h4 className="text-lg font-medium text-gray-900 mb-2">Upload DEXA Scan Report</h4>
                 <p className="text-sm text-gray-600 mb-4">
-                  Drag and drop your DEXA scan image or PDF here, or click to browse
+                  Upload your DEXA scan image/PDF and automatically extract the data
                 </p>
                 
-                {uploadedScanId ? (
-                  <ObjectUploader
-                    maxNumberOfFiles={1}
-                    maxFileSize={10485760} // 10MB
-                    onGetUploadParameters={handleGetUploadParameters}
-                    onComplete={handleUploadComplete}
-                    buttonClassName="bg-secondary text-white hover:bg-emerald-700"
-                  >
-                    Upload Scan Image
-                  </ObjectUploader>
-                ) : (
+                <div className="space-y-4">
+                  {/* Extract Data from Image Button */}
                   <div>
-                    <Button variant="outline" disabled>
-                      Save scan data first to upload image
+                    <Label htmlFor="scan-extract" className="sr-only">Extract data from scan</Label>
+                    <input
+                      id="scan-extract"
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          extractDataFromImage(file);
+                        }
+                      }}
+                    />
+                    <Button 
+                      type="button"
+                      onClick={() => document.getElementById('scan-extract')?.click()}
+                      disabled={isExtracting}
+                      className="bg-blue-600 text-white hover:bg-blue-700 mb-2"
+                    >
+                      {isExtracting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Extracting Data...
+                        </>
+                      ) : (
+                        <>
+                          <UploadIcon className="h-4 w-4 mr-2" />
+                          Upload & Extract Data
+                        </>
+                      )}
                     </Button>
                   </div>
-                )}
+
+                  {/* Save & Upload Image Button */}
+                  {uploadedScanId && (
+                    <ObjectUploader
+                      maxNumberOfFiles={1}
+                      maxFileSize={10485760} // 10MB
+                      onGetUploadParameters={handleGetUploadParameters}
+                      onComplete={handleUploadComplete}
+                      buttonClassName="bg-secondary text-white hover:bg-emerald-700"
+                    >
+                      Upload Scan Image
+                    </ObjectUploader>
+                  )}
+                </div>
                 
                 <p className="text-xs text-gray-500 mt-2">Supports JPG, PNG, PDF up to 10MB</p>
+                
+                {/* Extraction Results */}
+                {extractedData && (
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md text-left">
+                    <h5 className="text-sm font-medium text-green-800 mb-2">Extracted Data</h5>
+                    <div className="text-xs text-green-700 space-y-1">
+                      <div>Body Fat: {extractedData.bodyFatPercent}%</div>
+                      <div>Lean Mass: {extractedData.leanMass} lbs</div>
+                      <div>Total Weight: {extractedData.totalWeight} lbs</div>
+                      <div>Confidence: {Math.round(extractedData.confidence * 100)}%</div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {isUploading && (

@@ -212,6 +212,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ uploadURL });
   });
 
+  // Extract DEXA scan data from uploaded image
+  app.post("/api/extract-dexa-data", requireAuth, async (req: any, res) => {
+    try {
+      const { imageBase64 } = req.body;
+      
+      if (!imageBase64) {
+        return res.status(400).json({ error: "imageBase64 is required" });
+      }
+
+      // Remove data URL prefix if present
+      const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
+      
+      const { extractDexaScanData } = await import("./openai");
+      const extractedData = await extractDexaScanData(base64Data);
+      
+      res.json(extractedData);
+    } catch (error) {
+      console.error("Error extracting DEXA data:", error);
+      res.status(500).json({ error: "Failed to extract DEXA scan data" });
+    }
+  });
+
   app.put("/api/scan-images", requireAuth, async (req: any, res) => {
     if (!req.body.scanImageURL || !req.body.scanId) {
       return res.status(400).json({ error: "scanImageURL and scanId are required" });

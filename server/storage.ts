@@ -455,7 +455,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDexaScan(scanId: string, updates: Partial<InsertDexaScan>): Promise<DexaScan> {
-    const [result] = await this.db
+    const [result] = await db
       .update(dexaScansTable)
       .set(updates)
       .where(eq(dexaScansTable.id, scanId))
@@ -477,7 +477,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Scan not found");
     }
 
-    await this.db
+    await db
       .delete(dexaScansTable)
       .where(eq(dexaScansTable.id, scanId));
 
@@ -486,7 +486,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDexaScan(scanId: string): Promise<DexaScan | null> {
-    const [result] = await this.db
+    const [result] = await db
       .select()
       .from(dexaScansTable)
       .where(eq(dexaScansTable.id, scanId))
