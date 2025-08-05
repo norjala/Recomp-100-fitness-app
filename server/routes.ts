@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth } from "./auth";
+import { requireAuth, requireVerifiedEmail } from "./auth";
 import {
   ObjectStorageService,
   ObjectNotFoundError,
@@ -11,26 +12,13 @@ import { insertUserSchema, insertDexaScanSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
-
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUserWithStats(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Setup new auth system
+  setupAuth(app);
 
   // User registration for competition
-  app.post('/api/users/register', isAuthenticated, async (req: any, res) => {
+  app.post('/api/users/register', requireVerifiedEmail, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const userClaims = req.user.claims;
+      const userId = req.user.id;
       
       const registrationData = insertUserSchema.extend({
         scanDate: z.string(),
@@ -39,18 +27,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scanImagePath: z.string().optional(),
       }).parse(req.body);
 
-      // Create competition user profile
-      const user = await storage.upsertUser({
-        id: userId,
-        email: userClaims.email,
-        firstName: userClaims.first_name,
-        lastName: userClaims.last_name,
-        profileImageUrl: userClaims.profile_image_url,
-      });
-
       // Update with competition data
       const competitionUser = await storage.createCompetitionUser({
-        ...user,
+        id: userId,
+        email: req.user.email, // Add required email field
+        password: req.user.password, // Add required password field
         name: registrationData.name,
         gender: registrationData.gender,
         height: registrationData.height,
@@ -87,10 +68,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user's DEXA scans
-  app.get('/api/users/:userId/scans', isAuthenticated, async (req: any, res) => {
+  app.get('/api/users/:userId/scans', requireAuth, async (req: any, res) => {
     try {
       const requestedUserId = req.params.userId;
-      const currentUserId = req.user.claims.sub;
+      const currentUserId = req.user.id;
       
       // Users can only view their own scans
       if (requestedUserId !== currentUserId) {
@@ -106,9 +87,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new DEXA scan
-  app.post('/api/scans', isAuthenticated, async (req: any, res) => {
+  app.post('/api/scans', requireVerifiedEmail, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const scanData = insertDexaScanSchema.parse({
         ...req.body,
         userId,
@@ -128,8 +109,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Object storage endpoints for DEXA scan uploads
-  app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
-    const userId = req.user?.claims?.sub;
+  app.get("/objects/:objectPath(*)", requireAuth, async (req: any, res) => {
+    const userId = req.user?.id;
     const objectStorageService = new ObjectStorageService();
     try {
       const objectFile = await objectStorageService.getObjectEntityFile(
@@ -153,18 +134,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
+  app.post("/api/objects/upload", requireAuth, async (req, res) => {
     const objectStorageService = new ObjectStorageService();
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     res.json({ uploadURL });
   });
 
-  app.put("/api/scan-images", isAuthenticated, async (req: any, res) => {
+  app.put("/api/scan-images", requireAuth, async (req: any, res) => {
     if (!req.body.scanImageURL || !req.body.scanId) {
       return res.status(400).json({ error: "scanImageURL and scanId are required" });
     }
 
-    const userId = req.user?.claims?.sub;
+    const userId = req.user?.id;
 
     try {
       const objectStorageService = new ObjectStorageService();
@@ -188,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to recalculate all scores
-  app.post('/api/admin/recalculate-scores', isAuthenticated, async (req: any, res) => {
+  app.post('/api/admin/recalculate-scores', requireAuth, async (req: any, res) => {
     try {
       await storage.recalculateAllScores();
       res.json({ message: "Scores recalculated successfully" });

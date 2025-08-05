@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,7 @@ type ScanFormData = z.infer<typeof scanFormSchema>;
 
 export default function Upload() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState({
@@ -37,20 +36,6 @@ export default function Upload() {
   
   const [uploadedScanId, setUploadedScanId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, authLoading, toast]);
 
   const createScanMutation = useMutation({
     mutationFn: async (data: ScanFormData) => {

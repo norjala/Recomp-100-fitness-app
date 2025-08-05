@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trophy, Medal, Award } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import type { LeaderboardEntry } from "@shared/schema";
 
 export default function Leaderboard() {

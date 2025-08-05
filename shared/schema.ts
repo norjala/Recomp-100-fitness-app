@@ -24,13 +24,15 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table for Replit Auth
+// User storage table for email/password authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
+  email: varchar("email").unique().notNull(),
+  password: varchar("password").notNull(),
+  isEmailVerified: boolean("is_email_verified").default(false).notNull(),
+  emailVerificationToken: varchar("email_verification_token"),
+  passwordResetToken: varchar("password_reset_token"),
+  passwordResetExpires: timestamp("password_reset_expires"),
   // Competition specific fields - optional until profile is completed
   name: text("name"),
   gender: varchar("gender", { enum: ["male", "female"] }),
@@ -110,18 +112,36 @@ export const insertScoringDataSchema = createInsertSchema(scoringData).omit({
   lastCalculated: true,
 });
 
-export const upsertUserSchema = createInsertSchema(users).pick({
-  id: true,
+// Auth schemas
+export const registerUserSchema = createInsertSchema(users).pick({
   email: true,
-  firstName: true,
-  lastName: true,
-  profileImageUrl: true,
+  password: true,
+}).extend({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export const loginUserSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 // Types
-export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type RegisterUser = z.infer<typeof registerUserSchema>;
+export type LoginUser = z.infer<typeof loginUserSchema>;
+export type ForgotPassword = z.infer<typeof forgotPasswordSchema>;
+export type ResetPassword = z.infer<typeof resetPasswordSchema>;
 export type DexaScan = typeof dexaScans.$inferSelect;
 export type InsertDexaScan = z.infer<typeof insertDexaScanSchema>;
 export type ScoringData = typeof scoringData.$inferSelect;

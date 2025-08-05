@@ -1,6 +1,6 @@
 # Overview
 
-FitChallenge Pro is a 100-day body recomposition competition web application built with React, TypeScript, and Express. The app tracks contestants' body composition changes through DEXA scan uploads, implements gender-specific scoring algorithms, and provides competitive leaderboards. Users can register for the competition, upload and track multiple DEXA scans, view their progress over time, and compete with others in a fair scoring system.
+FitnessForge is a 100-day body recomposition competition web application built with React, TypeScript, and Express. The app tracks contestants' body composition changes through DEXA scan uploads, implements gender-specific scoring algorithms, and provides competitive leaderboards. Users can register for the competition using simple email/password authentication, upload and track multiple DEXA scans, view their progress over time, and compete with others in a fair scoring system.
 
 # User Preferences
 
@@ -9,10 +9,11 @@ Preferred communication style: Simple, everyday language.
 # Recent Changes
 
 **Date: 2025-08-05**
-- Fixed database schema issue where required fields (name, gender, height, startingWeight) were causing authentication failures
-- Updated users table to make competition fields optional until profile completion
-- Modified storage layer to handle nullable gender field safely with defaults
-- Successfully resolved "null value in column 'name'" constraint violation error
+- Changed project name from "FitChallenge Pro" to "FitnessForge"
+- Replaced Replit Auth with simple email/password authentication system
+- Added email confirmation and password reset functionality using SendGrid
+- Updated database schema to support traditional user authentication
+- Implemented secure password hashing and session management
 
 # System Architecture
 
@@ -28,7 +29,7 @@ Preferred communication style: Simple, everyday language.
 - **Framework**: Express.js with TypeScript running on Node.js
 - **Database ORM**: Drizzle ORM for type-safe database operations
 - **Database**: PostgreSQL (configured for Neon serverless)
-- **Authentication**: Replit Auth with OpenID Connect integration
+- **Authentication**: Simple email/password authentication with email confirmation and password reset
 - **Session Management**: Express sessions with PostgreSQL storage
 - **File Storage**: Google Cloud Storage with custom ACL system
 
@@ -39,7 +40,7 @@ Preferred communication style: Simple, everyday language.
 - **Sessions Table**: Manages user authentication sessions
 
 ## Authentication & Authorization
-- **Authentication Provider**: Replit Auth using OpenID Connect
+- **Authentication Provider**: Custom email/password system with SendGrid email integration
 - **Session Storage**: PostgreSQL-backed sessions with configurable TTL
 - **Authorization**: Custom middleware for protecting API routes
 - **User Management**: Automatic user creation and profile management

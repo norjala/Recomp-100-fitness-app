@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -14,37 +13,18 @@ import type { UserWithStats, LeaderboardEntry } from "@shared/schema";
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, authLoading, toast]);
-
-  const { data: user, isLoading: userLoading } = useQuery<UserWithStats>({
-    queryKey: ["/api/auth/user"],
-    enabled: isAuthenticated,
-  });
+  const { user, isLoading: authLoading } = useAuth();
 
   const { data: leaderboard, isLoading: leaderboardLoading } = useQuery<LeaderboardEntry[]>({
     queryKey: ["/api/leaderboard"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   const currentRank = leaderboard?.find(entry => entry.user.id === user?.id)?.rank;
   const challengeDay = user?.joinDate ? Math.floor((Date.now() - new Date(user.joinDate).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 0;
   const progressPercent = Math.min(100, (challengeDay / 100) * 100);
 
-  if (authLoading || userLoading) {
+  if (authLoading || !user) {
     return <DashboardSkeleton />;
   }
 

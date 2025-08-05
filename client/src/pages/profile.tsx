@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,30 +13,16 @@ import type { UserWithStats, DexaScan } from "@shared/schema";
 
 export default function Profile() {
   const { toast } = useToast();
-  const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, authLoading, toast]);
+  const { user: authUser, isLoading: authLoading } = useAuth();
 
   const { data: user, isLoading: userLoading } = useQuery<UserWithStats>({
-    queryKey: ["/api/auth/user"],
-    enabled: isAuthenticated,
+    queryKey: ["/api/user"],
+    enabled: !!authUser,
   });
 
   const { data: scans, isLoading: scansLoading } = useQuery<DexaScan[]>({
     queryKey: ["/api/users", authUser?.id, "scans"],
-    enabled: isAuthenticated && !!authUser?.id,
+    enabled: !!authUser?.id,
   });
 
   if (authLoading || userLoading) {

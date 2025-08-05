@@ -1,14 +1,14 @@
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Trophy, Plus } from "lucide-react";
 
 export function Header() {
   const [location] = useLocation();
-  const { user, isAuthenticated } = useAuth();
+  const { user, logoutMutation } = useAuth();
 
-  if (!isAuthenticated || !user) {
+  if (!user) {
     return null;
   }
 
@@ -26,7 +26,7 @@ export function Header() {
   };
 
   const handleLogout = () => {
-    window.location.href = "/api/logout";
+    logoutMutation.mutate();
   };
 
   return (
