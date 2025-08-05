@@ -453,6 +453,47 @@ export class DatabaseStorage implements IStorage {
         .where(eq(scoringData.userId, scoring.userId));
     }
   }
+
+  async updateDexaScan(scanId: string, updates: Partial<InsertDexaScan>): Promise<DexaScan> {
+    const [result] = await this.db
+      .update(dexaScansTable)
+      .set(updates)
+      .where(eq(dexaScansTable.id, scanId))
+      .returning();
+
+    if (!result) {
+      throw new Error("Scan not found");
+    }
+
+    // Recalculate user's score after updating scan
+    await this.calculateAndUpdateUserScore(result.userId);
+
+    return result;
+  }
+
+  async deleteDexaScan(scanId: string): Promise<void> {
+    const scan = await this.getDexaScan(scanId);
+    if (!scan) {
+      throw new Error("Scan not found");
+    }
+
+    await this.db
+      .delete(dexaScansTable)
+      .where(eq(dexaScansTable.id, scanId));
+
+    // Recalculate user's score after deleting scan
+    await this.calculateAndUpdateUserScore(scan.userId);
+  }
+
+  async getDexaScan(scanId: string): Promise<DexaScan | null> {
+    const [result] = await this.db
+      .select()
+      .from(dexaScansTable)
+      .where(eq(dexaScansTable.id, scanId))
+      .limit(1);
+
+    return result || null;
+  }
 }
 
 export const storage = new DatabaseStorage();

@@ -1,5 +1,6 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,13 +8,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { ScanComparison } from "@/components/scan-comparison";
-import { Eye, FileText } from "lucide-react";
-import type { UserWithStats, DexaScan } from "@shared/schema";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertDexaScanSchema } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { Eye, FileText, Edit, Trash2, Plus } from "lucide-react";
+import type { UserWithStats, DexaScan, InsertDexaScan } from "@shared/schema";
 
 export default function Profile() {
   const { toast } = useToast();
   const { user: authUser, isLoading: authLoading } = useAuth();
+  const [editingScan, setEditingScan] = useState<DexaScan | null>(null);
 
   const { data: user, isLoading: userLoading } = useQuery<UserWithStats>({
     queryKey: ["/api/user"],
@@ -24,6 +35,87 @@ export default function Profile() {
     queryKey: ["/api/users", authUser?.id, "scans"],
     enabled: !!authUser?.id,
   });
+
+  // Edit scan mutation
+  const editScanMutation = useMutation({
+    mutationFn: async (data: { scanId: string; updates: Partial<InsertDexaScan> }) => {
+      const res = await apiRequest("PUT", `/api/scans/${data.scanId}`, data.updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", authUser?.id, "scans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/scoring", authUser?.id] });
+      setEditingScan(null);
+      toast({
+        title: "Scan updated",
+        description: "Your DEXA scan has been successfully updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete scan mutation
+  const deleteScanMutation = useMutation({
+    mutationFn: async (scanId: string) => {
+      await apiRequest("DELETE", `/api/scans/${scanId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", authUser?.id, "scans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/scoring", authUser?.id] });
+      toast({
+        title: "Scan deleted",
+        description: "Your DEXA scan has been successfully deleted.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Delete failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const form = useForm<Partial<InsertDexaScan>>({
+    resolver: zodResolver(insertDexaScanSchema.partial()),
+  });
+
+  const handleEditScan = (scan: DexaScan) => {
+    setEditingScan(scan);
+    form.reset({
+      bodyFatPercent: scan.bodyFatPercent,
+      leanMass: scan.leanMass,
+      totalWeight: scan.totalWeight,
+      scanDate: new Date(scan.scanDate).toISOString().split('T')[0],
+      isBaseline: scan.isBaseline,
+      notes: scan.notes || '',
+    });
+  };
+
+  const onSubmitEdit = (data: Partial<InsertDexaScan>) => {
+    if (!editingScan) return;
+    editScanMutation.mutate({
+      scanId: editingScan.id,
+      updates: {
+        ...data,
+        scanDate: data.scanDate ? new Date(data.scanDate) : undefined,
+      },
+    });
+  };
+
+  const handleDeleteScan = (scanId: string) => {
+    if (confirm("Are you sure you want to delete this scan? This action cannot be undone.")) {
+      deleteScanMutation.mutate(scanId);
+    }
+  };
 
   if (authLoading || userLoading) {
     return <ProfileSkeleton />;
@@ -114,6 +206,21 @@ export default function Profile() {
                       ) : scans[0].id === scan.id ? (
                         <Badge className="bg-success text-white">Latest</Badge>
                       ) : null}
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleEditScan(scan)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleDeleteScan(scan.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                       {scan.scanImagePath && (
                         <Button 
                           variant="ghost" 
@@ -150,6 +257,142 @@ export default function Profile() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Scan Dialog */}
+      <Dialog open={!!editingScan} onOpenChange={() => setEditingScan(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit DEXA Scan</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmitEdit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="scanDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Scan Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="bodyFatPercent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Body Fat %</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.1" 
+                          placeholder="19.1"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="leanMass"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Lean Mass (lbs)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.1" 
+                          placeholder="123.5"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="totalWeight"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Total Weight (lbs)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.1" 
+                        placeholder="160.4"
+                        {...field}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="isBaseline"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Baseline Scan</FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Mark this as your starting/baseline scan
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Any additional notes about this scan..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setEditingScan(null)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={editScanMutation.isPending}
+                >
+                  {editScanMutation.isPending ? "Updating..." : "Update Scan"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

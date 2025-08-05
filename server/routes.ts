@@ -127,6 +127,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update DEXA scan
+  app.put('/api/scans/:scanId', requireAuth, async (req: any, res) => {
+    try {
+      const scanId = req.params.scanId;
+      const userId = req.user.id;
+      
+      // Verify scan belongs to user
+      const existingScan = await storage.getDexaScan(scanId);
+      if (!existingScan || existingScan.userId !== userId) {
+        return res.status(404).json({ message: "Scan not found" });
+      }
+
+      const updateData = insertDexaScanSchema.partial().parse({
+        ...req.body,
+        scanDate: req.body.scanDate ? new Date(req.body.scanDate) : undefined,
+      });
+
+      const updatedScan = await storage.updateDexaScan(scanId, updateData);
+      
+      // Recalculate all scores after scan update
+      await storage.recalculateAllScores();
+      
+      res.json(updatedScan);
+    } catch (error) {
+      console.error("Error updating scan:", error);
+      res.status(500).json({ message: "Failed to update scan" });
+    }
+  });
+
+  // Delete DEXA scan
+  app.delete('/api/scans/:scanId', requireAuth, async (req: any, res) => {
+    try {
+      const scanId = req.params.scanId;
+      const userId = req.user.id;
+      
+      // Verify scan belongs to user
+      const existingScan = await storage.getDexaScan(scanId);
+      if (!existingScan || existingScan.userId !== userId) {
+        return res.status(404).json({ message: "Scan not found" });
+      }
+
+      await storage.deleteDexaScan(scanId);
+      
+      // Recalculate all scores after scan deletion
+      await storage.recalculateAllScores();
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting scan:", error);
+      res.status(500).json({ message: "Failed to delete scan" });
+    }
+  });
+
   // Object storage endpoints for DEXA scan uploads
   app.get("/objects/:objectPath(*)", requireAuth, async (req: any, res) => {
     const userId = req.user?.id;
