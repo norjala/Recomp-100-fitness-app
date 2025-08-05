@@ -290,56 +290,79 @@ export class DatabaseStorage implements IStorage {
     if (!user) return;
 
     const baselineScan = await this.getBaselineScan(userId);
-    const latestScan = await this.getLatestScan(userId);
-
+    const allScans = await this.getUserScans(userId);
+    
+    // Require exactly 1 baseline scan and at least 1 additional scan
+    const nonBaselineScans = allScans.filter(scan => !scan.isBaseline);
+    
     if (!baselineScan) {
       console.log(`No baseline scan found for user ${userId}`);
       return;
     }
 
-    // If no latest scan or only baseline scan exists, set scores to 0
-    if (!latestScan || baselineScan.id === latestScan.id) {
-      console.log(`Only baseline scan exists for user ${userId}, setting scores to 0`);
-      await this.upsertScoringData({
-        userId,
-        fatLossScore: 0,
-        muscleGainScore: 0,
-        totalScore: 0,
-        fatLossRaw: 0,
-        muscleGainRaw: 0,
-      });
+    if (nonBaselineScans.length === 0) {
+      console.log(`User ${userId} needs at least 2 scans (1 baseline + 1 progress) to calculate score`);
+      // Don't create scoring record yet - user needs more scans
       return;
     }
+
+    // Get the latest non-baseline scan for comparison
+    const latestScan = nonBaselineScans[0]; // Already sorted by desc date
 
     console.log(`Calculating scores for user ${userId}:`);
     console.log(`Baseline: BF=${baselineScan.bodyFatPercent}%, LM=${baselineScan.leanMass}lbs`);
     console.log(`Latest: BF=${latestScan.bodyFatPercent}%, LM=${latestScan.leanMass}lbs`);
 
-    // Calculate raw scores
-    const fatLossRaw = this.calculateFatLossScore(
-      baselineScan.bodyFatPercent,
-      latestScan.bodyFatPercent,
-      user.gender || "male",
-      baselineScan.bodyFatPercent
-    );
+    // Calculate percentage changes from baseline
+    const bodyFatPercentChange = ((latestScan.bodyFatPercent - baselineScan.bodyFatPercent) / baselineScan.bodyFatPercent) * 100;
+    const leanMassPercentChange = ((latestScan.leanMass - baselineScan.leanMass) / baselineScan.leanMass) * 100;
 
-    const muscleGainRaw = this.calculateMuscleGainScore(
-      baselineScan.leanMass,
-      latestScan.leanMass,
-      user.gender || "male"
-    );
+    console.log(`Body fat % change: ${bodyFatPercentChange.toFixed(2)}%`);
+    console.log(`Lean mass % change: ${leanMassPercentChange.toFixed(2)}%`);
 
-    console.log(`Raw scores: FLS=${fatLossRaw}, MGS=${muscleGainRaw}`);
+    // Calculate scores based on percentage improvements
+    const fatLossScore = this.calculateFatLossScoreFromPercent(bodyFatPercentChange, user.gender || "male");
+    const muscleGainScore = this.calculateMuscleGainScoreFromPercent(leanMassPercentChange, user.gender || "male");
 
-    // Store raw scores
+    console.log(`Calculated scores: FLS=${fatLossScore.toFixed(2)}, MGS=${muscleGainScore.toFixed(2)}`);
+
+    // Store scores
     await this.upsertScoringData({
       userId,
-      fatLossScore: fatLossRaw,
-      muscleGainScore: muscleGainRaw,
-      totalScore: fatLossRaw + muscleGainRaw,
-      fatLossRaw,
-      muscleGainRaw,
+      fatLossScore,
+      muscleGainScore,
+      totalScore: fatLossScore + muscleGainScore,
+      fatLossRaw: fatLossScore,
+      muscleGainRaw: muscleGainScore,
     });
+  }
+
+  private calculateFatLossScoreFromPercent(bodyFatPercentChange: number, gender: string): number {
+    // Negative change means fat loss (good), positive means fat gain (bad)
+    if (bodyFatPercentChange >= 0) return 0; // No fat loss
+    
+    // Convert to positive for scoring (e.g., -5% becomes 5% fat loss)
+    const fatLossPercent = Math.abs(bodyFatPercentChange);
+    
+    // Base score: 10 points per 1% body fat lost
+    const baseScore = fatLossPercent * 10;
+    
+    // Maximum score cap at 50 points for fat loss component
+    return Math.min(50, baseScore);
+  }
+
+  private calculateMuscleGainScoreFromPercent(leanMassPercentChange: number, gender: string): number {
+    // Positive change means muscle gain (good)
+    if (leanMassPercentChange <= 0) return 0; // No muscle gain
+    
+    // Base score: 20 points per 1% lean mass gained
+    const baseScore = leanMassPercentChange * 20;
+    
+    // Gender multiplier: women get bonus for muscle building difficulty
+    const genderMultiplier = gender === "female" ? 1.5 : 1.0;
+    
+    // Maximum score cap at 50 points for muscle gain component
+    return Math.min(50, baseScore * genderMultiplier);
   }
 
   private calculateFatLossScore(

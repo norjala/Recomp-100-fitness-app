@@ -56,14 +56,20 @@ export default function Dashboard() {
     );
   }
 
-  // Calculate body composition changes if we have scan data
-  const bodyFatChange = scans && scans.length > 1 
-    ? ((scans[0].bodyFatPercent - scans[scans.length - 1].bodyFatPercent) / scans[scans.length - 1].bodyFatPercent) * 100
+  // Calculate changes from baseline scan
+  const baselineScan = scans?.find(scan => scan.isBaseline);
+  const latestScan = scans?.find(scan => !scan.isBaseline);
+  
+  const bodyFatChange = baselineScan && latestScan
+    ? ((latestScan.bodyFatPercent - baselineScan.bodyFatPercent) / baselineScan.bodyFatPercent) * 100
     : 0;
     
-  const leanMassChange = scans && scans.length > 1
-    ? ((scans[0].leanMass - scans[scans.length - 1].leanMass) / scans[scans.length - 1].leanMass) * 100
+  const leanMassChange = baselineScan && latestScan
+    ? ((latestScan.leanMass - baselineScan.leanMass) / baselineScan.leanMass) * 100
     : 0;
+
+  // Check if user has minimum required scans for scoring
+  const hasMinimumScans = scans && scans.length >= 2 && baselineScan && latestScan;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -82,7 +88,7 @@ export default function Dashboard() {
             <p className="text-blue-100">Day {challengeDay} of 100</p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">#{currentRank || (userScore && userScore.totalScore > 0 ? '1' : '--')}</div>
+            <div className="text-2xl font-bold">#{hasMinimumScans && currentRank ? currentRank : '--'}</div>
             <p className="text-blue-100">Current Rank</p>
           </div>
           <div className="w-full sm:w-auto">
@@ -96,6 +102,36 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Minimum Scans Required Message */}
+      {!hasMinimumScans && (
+        <Card className="mb-6 border-amber-200 bg-amber-50">
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-amber-100 rounded-lg">
+                <Calendar className="h-5 w-5 text-amber-600" />
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-medium text-amber-800">Upload Your Progress Scan</h3>
+                <p className="text-amber-700">
+                  You need at least 2 DEXA scans (1 baseline + 1 progress) to calculate your competition score.
+                  {scans && scans.length === 1 && baselineScan 
+                    ? " You have your baseline scan - now upload a progress scan to see your scores!"
+                    : " Upload your baseline scan and a progress scan to get started."
+                  }
+                </p>
+                <Button 
+                  className="mt-3 bg-amber-600 hover:bg-amber-700" 
+                  onClick={() => setLocation('/upload')}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Upload DEXA Scan
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
@@ -107,7 +143,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Body Fat %</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {scans && scans.length > 0 ? scans[scans.length - 1].bodyFatPercent.toFixed(1) : '--'}%
+                  {latestScan ? latestScan.bodyFatPercent.toFixed(1) : '--'}%
                 </p>
                 {bodyFatChange !== 0 && (
                   <p className={`text-sm flex items-center ${bodyFatChange < 0 ? 'text-success' : 'text-destructive'}`}>
@@ -129,7 +165,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Lean Mass</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {scans && scans.length > 0 ? scans[scans.length - 1].leanMass.toFixed(1) : '--'} lbs
+                  {latestScan ? latestScan.leanMass.toFixed(1) : '--'} lbs
                 </p>
                 {leanMassChange !== 0 && (
                   <p className={`text-sm flex items-center ${leanMassChange > 0 ? 'text-success' : 'text-destructive'}`}>
@@ -150,12 +186,21 @@ export default function Dashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Score</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {userScore ? userScore.totalScore.toFixed(1) : (scans && scans.length > 1 ? '0.0' : '--')}
-                </p>
-                <p className="text-sm text-gray-500">
-                  FLS: {userScore ? userScore.fatLossScore.toFixed(1) : (scans && scans.length > 1 ? '0.0' : '--')} | MGS: {userScore ? userScore.muscleGainScore.toFixed(1) : (scans && scans.length > 1 ? '0.0' : '--')}
-                </p>
+                {!hasMinimumScans ? (
+                  <div>
+                    <p className="text-2xl font-bold text-gray-400">--</p>
+                    <p className="text-xs text-gray-400">Need 2+ scans to calculate</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {userScore ? userScore.totalScore.toFixed(1) : '0.0'}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      FLS: {userScore ? userScore.fatLossScore.toFixed(1) : '0.0'} | MGS: {userScore ? userScore.muscleGainScore.toFixed(1) : '0.0'}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
