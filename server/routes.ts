@@ -118,6 +118,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const scan = await storage.createDexaScan(scanData);
       
+      // If first name and last name are provided in the scan name, update user profile
+      if (req.body.firstName && req.body.lastName) {
+        try {
+          await storage.updateUser(userId, {
+            firstName: req.body.firstName,
+            lastName: req.body.lastName,
+            name: `${req.body.firstName} ${req.body.lastName}`,
+          });
+        } catch (error) {
+          console.error("Error updating user name:", error);
+          // Don't fail the scan creation if profile update fails
+        }
+      }
+      
       // Recalculate all scores after new scan
       await storage.recalculateAllScores();
       

@@ -35,6 +35,8 @@ export const users = pgTable("users", {
   passwordResetExpires: timestamp("password_reset_expires"),
   // Competition specific fields - optional until profile is completed
   name: text("name"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   gender: varchar("gender", { enum: ["male", "female"] }),
   height: text("height"),
   startingWeight: real("starting_weight"),

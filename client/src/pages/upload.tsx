@@ -33,6 +33,8 @@ export default function Upload() {
     fatMass: 0,
     rmr: 0,
     scanName: '',
+    firstName: '',
+    lastName: '',
     scanImagePath: undefined as string | undefined,
     isBaseline: false,
     notes: '',
@@ -66,6 +68,8 @@ export default function Upload() {
         fatMass: 0,
         rmr: 0,
         scanName: '',
+        firstName: '',
+        lastName: '',
         scanImagePath: undefined as string | undefined,
         isBaseline: false,
         notes: '',
@@ -189,6 +193,8 @@ export default function Upload() {
           rmr: extractedData.rmr || 0,
           scanName: extractedData.scanName || '',
           scanDate: extractedData.scanDate || prev.scanDate,
+          firstName: extractedData.firstName || '',
+          lastName: extractedData.lastName || '',
         }));
 
         toast({
@@ -332,6 +338,9 @@ export default function Upload() {
                     <h5 className="text-sm font-medium text-green-800 mb-2">Extracted Data</h5>
                     <div className="text-xs text-green-700 space-y-1">
                       {extractedData.scanName && <div>Name: {extractedData.scanName}</div>}
+                      {(extractedData.firstName || extractedData.lastName) && (
+                        <div>Extracted Name: {extractedData.firstName} {extractedData.lastName}</div>
+                      )}
                       {extractedData.scanDate && <div>Date: {extractedData.scanDate}</div>}
                       <div>Body Fat: {extractedData.bodyFatPercent}%</div>
                       <div>Lean Mass: {extractedData.leanMass} lbs</div>

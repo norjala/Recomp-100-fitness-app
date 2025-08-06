@@ -75,7 +75,7 @@ export default function Dashboard() {
     <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
       <div className="mb-6 md:mb-8">
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-          Welcome back, {user.name || user.email}!
+          Welcome back, {user.firstName || user.name || user.email.split('@')[0]}!
         </h2>
         <p className="text-gray-600">Track your progress in the 100-day body recomposition challenge</p>
       </div>

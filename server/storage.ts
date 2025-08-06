@@ -26,6 +26,7 @@ export interface IStorage {
   updateVerificationToken(id: string, token: string): Promise<void>;
   setPasswordResetToken(id: string, token: string, expires: Date): Promise<void>;
   resetPassword(id: string, hashedPassword: string): Promise<void>;
+  updateUser(id: string, updates: Partial<InsertUser>): Promise<User>;
   
   // Competition user operations
   createCompetitionUser(user: InsertUser & { id: string }): Promise<User>;
@@ -118,6 +119,21 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date() 
       })
       .where(eq(users.id, id));
+  }
+
+  // Method to update user profile
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    
+    if (!updatedUser) {
+      throw new Error("User not found");
+    }
+    
+    return updatedUser;
   }
 
   // Competition user operations  
