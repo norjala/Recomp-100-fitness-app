@@ -188,11 +188,12 @@ export default function Upload() {
           fatMass: extractedData.fatMass || 0,
           rmr: extractedData.rmr || 0,
           scanName: extractedData.scanName || '',
+          scanDate: extractedData.scanDate || prev.scanDate,
         }));
 
         toast({
           title: "Data extracted successfully",
-          description: `Extracted: ${extractedData.bodyFatPercent}% BF, ${extractedData.leanMass}lbs LM, ${extractedData.totalWeight}lbs total (${Math.round(extractedData.confidence * 100)}% confidence)`,
+          description: `Extracted: ${extractedData.bodyFatPercent}% BF, ${extractedData.leanMass}lbs LM, ${extractedData.totalWeight}lbs total${extractedData.scanDate ? `, Date: ${extractedData.scanDate}` : ''} (${Math.round(extractedData.confidence * 100)}% confidence)`,
         });
       } else {
         toast({
@@ -331,6 +332,7 @@ export default function Upload() {
                     <h5 className="text-sm font-medium text-green-800 mb-2">Extracted Data</h5>
                     <div className="text-xs text-green-700 space-y-1">
                       {extractedData.scanName && <div>Name: {extractedData.scanName}</div>}
+                      {extractedData.scanDate && <div>Date: {extractedData.scanDate}</div>}
                       <div>Body Fat: {extractedData.bodyFatPercent}%</div>
                       <div>Lean Mass: {extractedData.leanMass} lbs</div>
                       <div>Total Weight: {extractedData.totalWeight} lbs</div>

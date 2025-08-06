@@ -45,6 +45,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bodyFatPercent: registrationData.bodyFat,
         leanMass: registrationData.leanMass,
         totalWeight: registrationData.startingWeight,
+        fatMass: (registrationData.bodyFat / 100) * registrationData.startingWeight, // Calculate fat mass
         scanImagePath: registrationData.scanImagePath,
         isBaseline: true,
       });

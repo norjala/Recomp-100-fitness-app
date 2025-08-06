@@ -15,6 +15,7 @@ export interface ExtractedDexaData {
   fatMass: number;
   rmr?: number;
   scanName?: string;
+  scanDate?: string;
   confidence: number;
 }
 
@@ -43,6 +44,7 @@ Extract these exact metrics:
 - Fat Mass in pounds (total fat mass)
 - RMR (Resting Metabolic Rate) in calories/day if available
 - Patient/Scan Name if visible
+- Scan Date if visible
 
 Common DEXA scan sections to look for:
 - "Total Body" summary section
@@ -59,6 +61,7 @@ Return JSON in this exact format:
   "fatMass": number,
   "rmr": number (optional, calories per day),
   "scanName": string (optional, patient name from scan),
+  "scanDate": string (optional, scan date in YYYY-MM-DD format),
   "confidence": number (0-1 scale)
 }
 
@@ -69,7 +72,7 @@ If you cannot find clear DEXA scan data, return confidence: 0.1 and reasonable e
           content: [
             {
               type: "text",
-              text: "Extract body composition data from this DEXA scan image. Look for body fat percentage, lean mass (lbs), and total weight (lbs). Return as JSON."
+              text: "Extract body composition data from this DEXA scan image. Look for body fat percentage, lean mass (lbs), total weight (lbs), and scan date. Return as JSON."
             },
             {
               type: "image_url",
@@ -93,6 +96,7 @@ If you cannot find clear DEXA scan data, return confidence: 0.1 and reasonable e
     const fatMass = Number(result.fatMass) || 0;
     const rmr = result.rmr ? Number(result.rmr) : undefined;
     const scanName = result.scanName ? String(result.scanName).trim() : undefined;
+    const scanDate = result.scanDate ? String(result.scanDate).trim() : undefined;
     const confidence = Math.min(Math.max(Number(result.confidence) || 0.1, 0), 1);
 
     // Basic validation checks
@@ -116,6 +120,7 @@ If you cannot find clear DEXA scan data, return confidence: 0.1 and reasonable e
       fatMass,
       rmr,
       scanName,
+      scanDate,
       confidence
     };
 
