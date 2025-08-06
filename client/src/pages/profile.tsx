@@ -18,6 +18,7 @@ import { ScanComparison } from "@/components/scan-comparison";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertDexaScanSchema } from "@shared/schema";
+import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { Eye, FileText, Edit, Trash2, Plus } from "lucide-react";
 import type { UserWithStats, DexaScan, InsertDexaScan } from "@shared/schema";
@@ -86,8 +87,12 @@ export default function Profile() {
     },
   });
 
-  const form = useForm<Partial<InsertDexaScan>>({
-    resolver: zodResolver(insertDexaScanSchema.partial()),
+  const editFormSchema = insertDexaScanSchema.partial().extend({
+    scanDate: z.union([z.string(), z.date()]).optional(),
+  });
+
+  const form = useForm<z.infer<typeof editFormSchema>>({
+    resolver: zodResolver(editFormSchema),
   });
 
   const handleEditScan = (scan: DexaScan) => {
@@ -105,13 +110,13 @@ export default function Profile() {
     });
   };
 
-  const onSubmitEdit = (data: Partial<InsertDexaScan>) => {
+  const onSubmitEdit = (data: z.infer<typeof editFormSchema>) => {
     if (!editingScan) return;
     editScanMutation.mutate({
       scanId: editingScan.id,
       updates: {
         ...data,
-        scanDate: typeof data.scanDate === 'string' ? new Date(data.scanDate) : data.scanDate,
+        scanDate: data.scanDate ? (typeof data.scanDate === 'string' ? new Date(data.scanDate) : data.scanDate) : undefined,
       },
     });
   };
@@ -290,6 +295,9 @@ export default function Profile() {
                         type="date" 
                         {...field}
                         value={typeof field.value === 'string' ? field.value : field.value?.toISOString().split('T')[0] || ''}
+                        onChange={(e) => {
+                          field.onChange(e.target.value);
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -424,6 +432,7 @@ export default function Profile() {
                         placeholder="Additional notes about this scan..."
                         className="resize-none"
                         {...field}
+                        value={field.value || ''}
                       />
                     </FormControl>
                     <FormMessage />
