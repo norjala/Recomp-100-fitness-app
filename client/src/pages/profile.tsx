@@ -89,6 +89,8 @@ export default function Profile() {
 
   const editFormSchema = insertDexaScanSchema.partial().extend({
     scanDate: z.union([z.string(), z.date()]).optional(),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
   });
 
   const form = useForm<z.infer<typeof editFormSchema>>({
@@ -97,13 +99,19 @@ export default function Profile() {
 
   const handleEditScan = (scan: DexaScan) => {
     setEditingScan(scan);
+    // Try to split the scan name into first and last name
+    const nameParts = scan.scanName ? scan.scanName.split(/[,\s]+/).filter(part => part.trim()) : [];
+    const firstName = nameParts.length > 1 ? nameParts[1] : nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts[0] : '';
+    
     form.reset({
       bodyFatPercent: scan.bodyFatPercent,
       leanMass: scan.leanMass,
       totalWeight: scan.totalWeight,
       fatMass: scan.fatMass || 0,
       rmr: scan.rmr || 0,
-      scanName: scan.scanName || '',
+      firstName: firstName,
+      lastName: lastName,
       scanDate: new Date(scan.scanDate).toISOString().split('T')[0],
       isBaseline: scan.isBaseline,
       notes: scan.notes || '',
@@ -117,6 +125,9 @@ export default function Profile() {
       updates: {
         ...data,
         scanDate: data.scanDate ? (typeof data.scanDate === 'string' ? new Date(data.scanDate) : data.scanDate) : undefined,
+        // Update user profile with first and last name if provided
+        firstName: data.firstName,
+        lastName: data.lastName,
       },
     });
   };
@@ -304,23 +315,42 @@ export default function Profile() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="scanName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Enter name from scan"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="First name"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Last name"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
