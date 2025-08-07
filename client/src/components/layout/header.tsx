@@ -37,7 +37,7 @@ export function Header() {
             <div className="flex-shrink-0">
               <Link href="/">
                 <h1 className="text-2xl font-bold text-primary cursor-pointer">
-                  💯 Day Recomp
+                  Recomp 💯
                 </h1>
               </Link>
             </div>
