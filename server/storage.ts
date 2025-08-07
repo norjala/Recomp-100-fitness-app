@@ -193,10 +193,53 @@ export class DatabaseStorage implements IStorage {
   async createDexaScan(scanData: InsertDexaScan): Promise<DexaScan> {
     const [scan] = await db.insert(dexaScans).values(scanData).returning();
     
+    // Auto-manage baseline scan: mark earliest scan as baseline when user has ≥2 scans
+    await this.autoManageBaselineScan(scanData.userId);
+    
     // Recalculate scores after new scan
     await this.calculateAndUpdateUserScore(scanData.userId);
     
     return scan;
+  }
+
+  private async autoManageBaselineScan(userId: string): Promise<void> {
+    // Get all scans for this user ordered by scan date
+    const allScans = await db
+      .select()
+      .from(dexaScans)
+      .where(eq(dexaScans.userId, userId))
+      .orderBy(asc(dexaScans.scanDate));
+
+    // Only proceed if user has at least 2 scans
+    if (allScans.length < 2) {
+      return;
+    }
+
+    // Find current baseline scans
+    const currentBaselines = allScans.filter(scan => scan.isBaseline);
+    const earliestScan = allScans[0];
+
+    // If no baseline exists, or if earliest scan is not marked as baseline
+    if (currentBaselines.length === 0 || !earliestScan.isBaseline) {
+      // First, unmark all current baselines
+      if (currentBaselines.length > 0) {
+        await db
+          .update(dexaScans)
+          .set({ isBaseline: false })
+          .where(and(
+            eq(dexaScans.userId, userId),
+            eq(dexaScans.isBaseline, true)
+          ));
+      }
+
+      // Then mark the earliest scan as baseline
+      await db
+        .update(dexaScans)
+        .set({ isBaseline: true })
+        .where(eq(dexaScans.id, earliestScan.id));
+      
+      console.log(`Auto-marked earliest scan (${earliestScan.scanDate}) as baseline for user ${userId}`);
+    }
   }
 
   async getUserScans(userId: string): Promise<DexaScan[]> {

@@ -13,6 +13,10 @@ Preferred communication style: Simple, everyday language.
 
 **Date: 2025-08-07**
 - Changed application name from "FitnessForge" to "💯 Day Recomp" and finally to "Recomp 💯"
+- Removed trophy icon from header navigation while keeping it in Leaderboard page
+- Implemented automatic baseline scan marking: when a user has ≥2 scans, the earliest scan by date is automatically marked as baseline
+- Fixed leaderboard display issues where users weren't appearing due to missing baseline scans
+- Added comprehensive cache invalidation after scan uploads for automatic app refresh
 - Replaced Replit Auth with simple email/password authentication system
 - Added email confirmation and password reset functionality using SendGrid
 - Updated database schema to support traditional user authentication
