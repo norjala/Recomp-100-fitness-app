@@ -16,6 +16,8 @@ import type { UploadResult } from "@uppy/core";
 
 const scanFormSchema = insertDexaScanSchema.omit({ userId: true, createdAt: true }).extend({
   scanDate: z.string().min(1, "Scan date is required"),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
 });
 
 type ScanFormData = z.infer<typeof scanFormSchema>;
@@ -378,15 +380,27 @@ export default function Upload() {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="scanName">Name</Label>
-                  <Input
-                    id="scanName"
-                    type="text"
-                    placeholder="Enter name (extracted from scan if available)"
-                    value={formData.scanName || ''}
-                    onChange={(e) => handleInputChange('scanName', e.target.value)}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      placeholder="First name"
+                      value={formData.firstName || ''}
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      placeholder="Last name"
+                      value={formData.lastName || ''}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    />
+                  </div>
                 </div>
                 
                 <div>
