@@ -37,8 +37,14 @@ export default function Dashboard() {
   const challengeStartDate = new Date('2025-08-04');
   const challengeEndDate = new Date('2025-11-12');
   const today = new Date();
-  const challengeDay = Math.max(1, Math.min(100, Math.floor((today.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1));
-  const progressPercent = Math.min(100, (challengeDay / 100) * 100);
+  
+  // Calculate days remaining until challenge ends
+  const daysRemaining = Math.max(0, Math.ceil((challengeEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+  
+  // Calculate progress percentage (how much of the challenge has passed)
+  const totalDays = Math.ceil((challengeEndDate.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24));
+  const daysPassed = totalDays - daysRemaining;
+  const progressPercent = Math.min(100, Math.max(0, (daysPassed / totalDays) * 100));
 
   if (authLoading || !user) {
     return <DashboardSkeleton />;
@@ -85,7 +91,9 @@ export default function Dashboard() {
         <div className="flex items-center justify-between flex-wrap gap-3 md:gap-4">
           <div>
             <h3 className="text-lg md:text-xl font-semibold mb-1 md:mb-2">Challenge Progress</h3>
-            <p className="text-blue-100 text-sm md:text-base">Day {challengeDay} of 100</p>
+            <p className="text-blue-100 text-sm md:text-base">
+              {daysRemaining > 0 ? `${daysRemaining} days left` : 'Challenge complete!'}
+            </p>
           </div>
           <div className="text-right">
             <div className="text-xl md:text-2xl font-bold">#{hasMinimumScans && currentRank ? currentRank : '--'}</div>

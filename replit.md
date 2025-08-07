@@ -17,6 +17,8 @@ Preferred communication style: Simple, everyday language.
 - Implemented automatic baseline scan marking: when a user has ≥2 scans, the earliest scan by date is automatically marked as baseline
 - Fixed leaderboard display issues where users weren't appearing due to missing baseline scans
 - Added comprehensive cache invalidation after scan uploads for automatic app refresh
+- Updated dashboard countdown from "Day X of 100" to "X days left" with global challenge dates
+- All users see same countdown regardless of when they join (Aug 4 - Nov 12, 2025)
 - Replaced Replit Auth with simple email/password authentication system
 - Added email confirmation and password reset functionality using SendGrid
 - Updated database schema to support traditional user authentication
