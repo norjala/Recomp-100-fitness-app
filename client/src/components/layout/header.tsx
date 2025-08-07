@@ -2,7 +2,7 @@ import { Link, useLocation, useRoute } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trophy, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 export function Header() {
   const [location] = useLocation();
@@ -37,7 +37,6 @@ export function Header() {
             <div className="flex-shrink-0">
               <Link href="/">
                 <h1 className="text-2xl font-bold text-primary cursor-pointer">
-                  <Trophy className="inline h-6 w-6 mr-2" />
                   💯 Day Recomp
                 </h1>
               </Link>
