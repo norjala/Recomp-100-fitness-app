@@ -58,8 +58,14 @@ export default function Upload() {
         title: "Success",
         description: "DEXA scan data saved successfully!",
       });
+      
+      // Invalidate all relevant caches to refresh Dashboard, Profile, and Leaderboard
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/users", user.id, "scans"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/scoring", user.id] });
+      }
       
       // Reset form
       setFormData({
@@ -99,6 +105,15 @@ export default function Upload() {
         title: "Success",
         description: "Scan image uploaded successfully!",
       });
+      
+      // Invalidate caches again after image upload to refresh all pages
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/users", user.id, "scans"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/scoring", user.id] });
+      }
+      
       setUploadedScanId(null);
       setIsUploading(false);
     },
