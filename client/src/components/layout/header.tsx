@@ -38,7 +38,7 @@ export function Header() {
               <Link href="/">
                 <h1 className="text-2xl font-bold text-primary cursor-pointer">
                   <Trophy className="inline h-6 w-6 mr-2" />
-                  FitnessForge
+                  💯 Day Recomp
                 </h1>
               </Link>
             </div>

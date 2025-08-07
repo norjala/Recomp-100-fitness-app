@@ -1,6 +1,6 @@
 # Overview
 
-FitnessForge is a 100-day body recomposition competition web application built with React, TypeScript, and Express. The app tracks contestants' body composition changes through DEXA scan uploads, implements gender-specific scoring algorithms, and provides competitive leaderboards. Users can register for the competition using simple email/password authentication, upload and track multiple DEXA scans, view their progress over time, and compete with others in a fair scoring system.
+💯 Day Recomp is a 100-day body recomposition competition web application built with React, TypeScript, and Express. The app tracks contestants' body composition changes through DEXA scan uploads, implements gender-specific scoring algorithms, and provides competitive leaderboards. Users can register for the competition using simple email/password authentication, upload and track multiple DEXA scans, view their progress over time, and compete with others in a fair scoring system.
 
 # User Preferences
 
@@ -10,6 +10,9 @@ Preferred communication style: Simple, everyday language.
 
 **Date: 2025-08-05**
 - Changed project name from "FitChallenge Pro" to "FitnessForge"
+
+**Date: 2025-08-07**
+- Changed application name from "FitnessForge" to "💯 Day Recomp"
 - Replaced Replit Auth with simple email/password authentication system
 - Added email confirmation and password reset functionality using SendGrid
 - Updated database schema to support traditional user authentication

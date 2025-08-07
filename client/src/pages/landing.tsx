@@ -13,7 +13,7 @@ export default function Landing() {
         <div className="text-center text-white mb-12">
           <div className="flex items-center justify-center mb-6">
             <Trophy className="h-16 w-16 mr-4" />
-            <h1 className="text-6xl font-bold">FitChallenge Pro</h1>
+            <h1 className="text-6xl font-bold">💯 Day Recomp</h1>
           </div>
           <p className="text-xl mb-8 max-w-2xl">
             Join the ultimate 100-day body recomposition competition. Track your progress with DEXA scans, 
