@@ -58,7 +58,7 @@ export default function Upload() {
         title: "Success",
         description: "DEXA scan data saved successfully!",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
       
       // Reset form
@@ -77,19 +77,7 @@ export default function Upload() {
         notes: '',
       });
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      
+    onError: (error: any) => {
       toast({
         title: "Error",
         description: "Failed to save scan data. Please try again.",

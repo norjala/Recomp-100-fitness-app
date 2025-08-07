@@ -41,12 +41,22 @@ export default function Profile() {
 
   // Edit scan mutation
   const editScanMutation = useMutation({
-    mutationFn: async (data: { scanId: string; updates: Partial<InsertDexaScan> }) => {
-      const res = await apiRequest("PUT", `/api/scans/${data.scanId}`, data.updates);
+    mutationFn: async ({ scanId, updates, firstName, lastName }: { 
+      scanId: string; 
+      updates: Partial<InsertDexaScan>; 
+      firstName?: string; 
+      lastName?: string; 
+    }) => {
+      const res = await apiRequest("PUT", `/api/scans/${scanId}`, {
+        ...updates,
+        firstName,
+        lastName,
+      });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users", authUser?.id, "scans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/scoring", authUser?.id] });
       setEditingScan(null);
@@ -120,15 +130,19 @@ export default function Profile() {
 
   const onSubmitEdit = (data: z.infer<typeof editFormSchema>) => {
     if (!editingScan) return;
+    
+    // Extract the scan update data (excluding firstName/lastName which are for profile)
+    const { firstName, lastName, ...scanUpdateData } = data;
+    
     editScanMutation.mutate({
       scanId: editingScan.id,
       updates: {
-        ...data,
-        scanDate: data.scanDate ? (typeof data.scanDate === 'string' ? new Date(data.scanDate) : data.scanDate) : undefined,
-        // Update user profile with first and last name if provided
-        firstName: data.firstName,
-        lastName: data.lastName,
+        ...scanUpdateData,
+        scanDate: scanUpdateData.scanDate ? (typeof scanUpdateData.scanDate === 'string' ? new Date(scanUpdateData.scanDate) : scanUpdateData.scanDate) : undefined,
       },
+      // Pass firstName and lastName separately for profile update  
+      firstName,
+      lastName,
     });
   };
 
