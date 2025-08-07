@@ -134,12 +134,23 @@ export function setupAuth(app: Express) {
     });
   });
 
-  app.get("/api/user", (req, res) => {
-    const user = (req.session as any)?.user;
-    if (!user) {
+  app.get("/api/user", async (req, res) => {
+    const sessionUser = (req.session as any)?.user;
+    if (!sessionUser) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-    res.json(user);
+    
+    // Fetch fresh user data from database to get updated fields like firstName/lastName
+    try {
+      const freshUser = await storage.getUser(sessionUser.id);
+      if (!freshUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(freshUser);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   });
 
   app.post("/api/verify-email", async (req, res) => {
