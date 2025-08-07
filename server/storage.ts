@@ -287,7 +287,27 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(dexaScans.createdAt))
         .limit(1);
 
-      const displayName = scansWithNames[0]?.scanName || user.name || 'Anonymous';
+      // Prioritize user's firstName, then extract from scan name, then fall back to user name or email
+      let displayName = user.firstName || 'Anonymous';
+      
+      // If no firstName in user record, try to extract from scan name
+      if (!user.firstName && scansWithNames[0]?.scanName) {
+        const scanName = scansWithNames[0].scanName;
+        // Handle formats like "Parnala, Jaron" -> "Jaron" or "Jaron Parnala" -> "Jaron"
+        const nameParts = scanName.split(/[,\s]+/).filter(part => part.trim());
+        if (nameParts.length > 1 && scanName.includes(',')) {
+          // Format: "Last, First" -> use second part
+          displayName = nameParts[1] || nameParts[0];
+        } else if (nameParts.length > 0) {
+          // Format: "First Last" or just "First" -> use first part
+          displayName = nameParts[0];
+        }
+      }
+      
+      // Final fallback to user name or email
+      if (displayName === 'Anonymous') {
+        displayName = user.name?.split(' ')[0] || user.email.split('@')[0] || 'Anonymous';
+      }
 
       let bodyFatChange = 0;
       let leanMassChange = 0;
