@@ -81,10 +81,18 @@ export function setupAuth(app: Express) {
         emailVerificationToken: verificationToken,
       });
 
-      // Send verification email
+      // Send verification email (with development bypass)
       const emailSent = await sendVerificationEmail(user.email, verificationToken);
       if (!emailSent) {
         console.error("Failed to send verification email");
+        // In development, auto-verify email if SendGrid fails
+        if (process.env.NODE_ENV === "development") {
+          await storage.verifyUserEmail(user.id);
+          return res.status(201).json({ 
+            message: "Account created and automatically verified (development mode). You can now log in.",
+            requiresVerification: false 
+          });
+        }
       }
 
       res.status(201).json({ 
