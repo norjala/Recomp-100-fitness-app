@@ -12,7 +12,14 @@ import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import type { UploadResult } from "@uppy/core";
 
-const registrationSchema = insertUserSchema.extend({
+const registrationSchema = insertUserSchema.pick({
+  name: true,
+  gender: true,
+  height: true,
+  startingWeight: true,
+  targetBodyFatPercent: true,
+  targetLeanMass: true,
+}).extend({
   scanDate: z.string().min(1, "Scan date is required"),
   bodyFat: z.number().min(0).max(100),
   leanMass: z.number().min(0),
@@ -38,6 +45,8 @@ export function RegistrationModal({ isOpen, onClose }: RegistrationModalProps) {
     scanDate: new Date().toISOString().split('T')[0],
     bodyFat: 0,
     leanMass: 0,
+    targetBodyFatPercent: 0,
+    targetLeanMass: 0,
     scanImagePath: undefined,
   });
 
@@ -183,6 +192,42 @@ export function RegistrationModal({ isOpen, onClose }: RegistrationModalProps) {
                 onChange={(e) => handleInputChange('startingWeight', parseFloat(e.target.value) || 0)}
                 required
               />
+            </div>
+          </div>
+          
+          <div className="border-t pt-4">
+            <h4 className="font-medium text-gray-900 mb-3">Your Target Goals</h4>
+            <p className="text-sm text-gray-600 mb-4">Set your body composition targets for the 100-day challenge</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="targetBodyFat">Target Body Fat %</Label>
+                <Input
+                  id="targetBodyFat"
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="50"
+                  placeholder="15.0"
+                  value={formData.targetBodyFatPercent || ''}
+                  onChange={(e) => handleInputChange('targetBodyFatPercent', parseFloat(e.target.value) || 0)}
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="targetLeanMass">Target Lean Mass (lbs)</Label>
+                <Input
+                  id="targetLeanMass"
+                  type="number"
+                  step="0.1"
+                  min="50"
+                  placeholder="145.0"
+                  value={formData.targetLeanMass || ''}
+                  onChange={(e) => handleInputChange('targetLeanMass', parseFloat(e.target.value) || 0)}
+                  required
+                />
+              </div>
             </div>
           </div>
           

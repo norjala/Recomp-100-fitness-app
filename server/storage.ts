@@ -145,6 +145,8 @@ export class DatabaseStorage implements IStorage {
         gender: userData.gender,
         height: userData.height,
         startingWeight: userData.startingWeight,
+        targetBodyFatPercent: userData.targetBodyFatPercent,
+        targetLeanMass: userData.targetLeanMass,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userData.id))
@@ -360,10 +362,31 @@ export class DatabaseStorage implements IStorage {
         bodyFatChange = ((latestScan.bodyFatPercent - baselineScan.bodyFatPercent) / baselineScan.bodyFatPercent) * 100;
         leanMassChange = ((latestScan.leanMass - baselineScan.leanMass) / baselineScan.leanMass) * 100;
         
-        // Calculate progress as combination of fat loss and muscle gain
-        const fatProgress = Math.max(0, -bodyFatChange / 20) * 50; // Normalize to 50%
-        const muscleProgress = Math.max(0, leanMassChange / 5) * 50; // Normalize to 50%
-        progressPercent = Math.min(100, fatProgress + muscleProgress);
+        // Calculate progress based on individual user targets
+        if (user.targetBodyFatPercent && user.targetLeanMass) {
+          // Calculate progress toward user's individual targets
+          const bodyFatProgress = this.calculateTargetProgress(
+            baselineScan.bodyFatPercent,
+            latestScan.bodyFatPercent,
+            user.targetBodyFatPercent,
+            'decrease' // lower is better for body fat
+          );
+          
+          const leanMassProgress = this.calculateTargetProgress(
+            baselineScan.leanMass,
+            latestScan.leanMass,
+            user.targetLeanMass,
+            'increase' // higher is better for lean mass
+          );
+          
+          // Average the two progress components (50% each)
+          progressPercent = Math.min(100, (bodyFatProgress + leanMassProgress) / 2);
+        } else {
+          // Fallback to old calculation if targets not set
+          const fatProgress = Math.max(0, -bodyFatChange / 20) * 50;
+          const muscleProgress = Math.max(0, leanMassChange / 5) * 50;
+          progressPercent = Math.min(100, fatProgress + muscleProgress);
+        }
       }
 
       leaderboard.push({
@@ -381,6 +404,32 @@ export class DatabaseStorage implements IStorage {
     }
 
     return leaderboard;
+  }
+
+  // Helper method to calculate progress toward individual targets
+  private calculateTargetProgress(
+    startValue: number, 
+    currentValue: number, 
+    targetValue: number, 
+    direction: 'increase' | 'decrease'
+  ): number {
+    if (direction === 'decrease') {
+      // For body fat: lower is better
+      if (startValue <= targetValue) return 100; // Already at or below target
+      
+      const totalProgress = startValue - targetValue; // How much they need to lose
+      const currentProgress = startValue - currentValue; // How much they've lost
+      
+      return Math.max(0, Math.min(100, (currentProgress / totalProgress) * 100));
+    } else {
+      // For lean mass: higher is better  
+      if (startValue >= targetValue) return 100; // Already at or above target
+      
+      const totalProgress = targetValue - startValue; // How much they need to gain
+      const currentProgress = currentValue - startValue; // How much they've gained
+      
+      return Math.max(0, Math.min(100, (currentProgress / totalProgress) * 100));
+    }
   }
 
   private async calculateAndUpdateUserScore(userId: string): Promise<void> {

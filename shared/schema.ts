@@ -40,6 +40,8 @@ export const users = pgTable("users", {
   gender: varchar("gender", { enum: ["male", "female"] }),
   height: text("height"),
   startingWeight: real("starting_weight"),
+  targetBodyFatPercent: real("target_body_fat_percent"), // User's target body fat %
+  targetLeanMass: real("target_lean_mass"), // User's target lean mass in lbs
   profileImageUrl: text("profile_image_url"), // Add profile image URL field
   joinDate: timestamp("join_date").defaultNow().notNull(),
   isActive: boolean("is_active").default(true).notNull(),
