@@ -61,6 +61,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user target goals
+  app.put('/api/user/targets', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { targetBodyFatPercent, targetLeanMass } = req.body;
+      
+      if (!targetBodyFatPercent || !targetLeanMass) {
+        return res.status(400).json({ message: "targetBodyFatPercent and targetLeanMass are required" });
+      }
+      
+      const updatedUser = await storage.updateUser(userId, {
+        targetBodyFatPercent: Number(targetBodyFatPercent),
+        targetLeanMass: Number(targetLeanMass),
+      });
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user targets:", error);
+      res.status(500).json({ message: "Failed to update target goals" });
+    }
+  });
+
   // Get leaderboard
   app.get('/api/leaderboard', async (req, res) => {
     try {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { Upload as UploadIcon, CloudUpload, Save } from "lucide-react";
-import { insertDexaScanSchema } from "@shared/schema";
+import { insertDexaScanSchema, type DexaScan } from "@shared/schema";
 import { z } from "zod";
 import type { UploadResult } from "@uppy/core";
 
@@ -18,6 +18,9 @@ const scanFormSchema = insertDexaScanSchema.omit({ userId: true, createdAt: true
   scanDate: z.string().min(1, "Scan date is required"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  // Target goals - only for first scan
+  targetBodyFatPercent: z.number().optional(),
+  targetLeanMass: z.number().optional(),
 });
 
 type ScanFormData = z.infer<typeof scanFormSchema>;
@@ -40,6 +43,8 @@ export default function Upload() {
     scanImagePath: undefined as string | undefined,
     isBaseline: false,
     notes: '',
+    targetBodyFatPercent: 0,
+    targetLeanMass: 0,
   });
   
   const [uploadedScanId, setUploadedScanId] = useState<string | null>(null);
@@ -47,9 +52,39 @@ export default function Upload() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
 
+  // Query user's existing scans to determine if this is their first scan
+  const { data: userScans = [], isLoading: scansLoading } = useQuery<DexaScan[]>({
+    queryKey: ["/api/users", user?.id, "scans"],
+    enabled: !!user?.id,
+  });
+
+  const isFirstScan = userScans.length === 0;
+  const needsTargetGoals = isFirstScan && (!user?.targetBodyFatPercent || !user?.targetLeanMass);
+
+  // Mutation to update user target goals
+  const updateUserTargetsMutation = useMutation({
+    mutationFn: async (data: { targetBodyFatPercent: number; targetLeanMass: number }) => {
+      const response = await apiRequest("PUT", "/api/user/targets", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+    },
+  });
+
   const createScanMutation = useMutation({
     mutationFn: async (data: ScanFormData) => {
-      const response = await apiRequest("POST", "/api/scans", data);
+      // If this is first scan and has target goals, update user targets first
+      if (needsTargetGoals && data.targetBodyFatPercent && data.targetLeanMass) {
+        await updateUserTargetsMutation.mutateAsync({
+          targetBodyFatPercent: data.targetBodyFatPercent,
+          targetLeanMass: data.targetLeanMass,
+        });
+      }
+      
+      // Remove target goals from scan data before sending
+      const { targetBodyFatPercent, targetLeanMass, ...scanData } = data;
+      const response = await apiRequest("POST", "/api/scans", scanData);
       return response.json();
     },
     onSuccess: (scan) => {
@@ -81,6 +116,8 @@ export default function Upload() {
         scanImagePath: undefined as string | undefined,
         isBaseline: false,
         notes: '',
+        targetBodyFatPercent: 0,
+        targetLeanMass: 0,
       });
     },
     onError: (error: any) => {
@@ -405,6 +442,45 @@ export default function Upload() {
                     />
                   </div>
                 </div>
+
+                {/* Target Goals Section - Only show for first scan */}
+                {needsTargetGoals && (
+                  <div className="border-t pt-4 mt-4">
+                    <h5 className="font-medium text-gray-900 mb-3">Set Your Target Goals</h5>
+                    <p className="text-sm text-gray-600 mb-4">Define your body composition targets for the 100-day challenge</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="targetBodyFat">Target Body Fat %</Label>
+                        <Input
+                          id="targetBodyFat"
+                          type="number"
+                          step="0.1"
+                          min="1"
+                          max="50"
+                          placeholder="15.0"
+                          value={formData.targetBodyFatPercent || ''}
+                          onChange={(e) => handleInputChange('targetBodyFatPercent', parseFloat(e.target.value) || 0)}
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="targetLeanMass">Target Lean Mass (lbs)</Label>
+                        <Input
+                          id="targetLeanMass"
+                          type="number"
+                          step="0.1"
+                          min="50"
+                          placeholder="145.0"
+                          value={formData.targetLeanMass || ''}
+                          onChange={(e) => handleInputChange('targetLeanMass', parseFloat(e.target.value) || 0)}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 <div>
                   <Label htmlFor="bodyFat">Body Fat %</Label>
