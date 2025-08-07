@@ -15,6 +15,11 @@ export default function Leaderboard() {
     queryKey: ["/api/leaderboard"],
   });
 
+  // Challenge countdown logic - same as dashboard
+  const challengeEndDate = new Date('2025-11-12');
+  const today = new Date();
+  const daysRemaining = Math.max(0, Math.ceil((challengeEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+
   if (isLoading) {
     return <LeaderboardSkeleton />;
   }
@@ -65,16 +70,23 @@ export default function Leaderboard() {
     <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
       <Card className="overflow-hidden card-mobile">
         <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <Trophy className="h-5 w-5 mr-2 text-warning" />
               Leaderboard
             </h3>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">Last updated:</span>
-              <span className="text-sm font-medium text-gray-900">
-                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-primary">
+                  {daysRemaining > 0 ? `${daysRemaining} days remaining` : 'Challenge complete!'}
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-500">Last updated:</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
             </div>
           </div>
         </div>
