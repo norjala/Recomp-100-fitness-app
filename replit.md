@@ -38,6 +38,17 @@ Preferred communication style: Simple, everyday language.
 - Responsive tables with mobile-friendly layouts and hidden columns on small screens
 - Enhanced form inputs with proper mobile sizing to prevent zoom on iOS
 
+**Date: 2025-08-08**
+- **FLEXIBLE AUTH SYSTEM COMPLETE**: Upgraded authentication to support both username and email login
+- Added unique username field to database schema (optional, alternative to email)
+- Modified login/registration forms to accept "Username or Email" as identifier
+- Username accounts work immediately without email verification requirement
+- Email accounts still require verification (with dev bypass for development)
+- Password reset only available for email accounts (username users contact support)
+- Fixed display name logic across dashboard, profile, and leaderboard for username accounts
+- Updated profile page to handle null email/name fields for username accounts
+- Authentication system now supports: usernames (3+ chars), emails, or both account types
+
 # System Architecture
 
 ## Frontend Architecture

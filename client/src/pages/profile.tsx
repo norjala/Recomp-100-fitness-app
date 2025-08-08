@@ -189,14 +189,17 @@ export default function Profile() {
             <Avatar className="h-20 md:h-24 w-20 md:w-24">
               <AvatarImage 
                 src={user.profileImageUrl || undefined} 
-                alt={user.name || user.email}
+                alt={user.name || user.username || user.email || 'User'}
               />
               <AvatarFallback className="text-lg md:text-xl">
-                {user.name?.split(' ').map(n => n[0]).join('').toUpperCase() || user.email.charAt(0).toUpperCase()}
+                {user.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 
+                 user.username?.charAt(0).toUpperCase() || 
+                 user.email?.charAt(0).toUpperCase() || 
+                 'U'}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <h4 className="text-lg md:text-xl font-bold text-gray-900 truncate">{user.name || user.email}</h4>
+              <h4 className="text-lg md:text-xl font-bold text-gray-900 truncate">{user.name || user.username || user.email || 'User'}</h4>
               <p className="text-gray-600 capitalize text-sm md:text-base">{user.gender || 'Not specified'}</p>
               <div className="mt-2 flex flex-col md:flex-row md:items-center md:space-x-4 text-xs md:text-sm text-gray-500 space-y-1 md:space-y-0">
                 <span>Height: {user.height || 'Not specified'}</span>
