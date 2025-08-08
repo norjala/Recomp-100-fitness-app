@@ -94,6 +94,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get contestants data (all users with baseline scan info)
+  app.get('/api/contestants', async (req, res) => {
+    try {
+      const contestants = await storage.getContestants();
+      res.json(contestants);
+    } catch (error) {
+      console.error("Error fetching contestants:", error);
+      res.status(500).json({ message: "Failed to fetch contestants" });
+    }
+  });
+
   // Get user's DEXA scans
   app.get('/api/users/:userId/scans', requireAuth, async (req: any, res) => {
     try {

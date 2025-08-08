@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trophy, Medal, Award } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import type { LeaderboardEntry } from "@shared/schema";
+import type { LeaderboardEntry, ContestantEntry } from "@shared/schema";
 
 export default function Leaderboard() {
   const { user: currentUser } = useAuth();
@@ -15,12 +15,16 @@ export default function Leaderboard() {
     queryKey: ["/api/leaderboard"],
   });
 
+  const { data: contestants, isLoading: contestantsLoading } = useQuery<ContestantEntry[]>({
+    queryKey: ["/api/contestants"],
+  });
+
   // Challenge countdown logic - same as dashboard
   const challengeEndDate = new Date('2025-11-14');
   const today = new Date();
   const daysRemaining = Math.max(0, Math.ceil((challengeEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
 
-  if (isLoading) {
+  if (isLoading || contestantsLoading) {
     return <LeaderboardSkeleton />;
   }
 
@@ -66,8 +70,94 @@ export default function Leaderboard() {
     }
   };
 
+  const displayContestants = contestants || [];
+
   return (
-    <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
+    <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow space-y-6">
+      {/* Contestants Table */}
+      <Card className="overflow-hidden card-mobile">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <Trophy className="h-5 w-5 mr-2 text-warning" />
+            Contestants
+          </h3>
+        </div>
+        
+        <div className="overflow-x-auto table-scroll">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
+                  Name
+                </th>
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Baseline Date
+                </th>
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Body Fat %
+                </th>
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider desktop-only">
+                  Target Body Fat %
+                </th>
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Lean Mass (lbs)
+                </th>
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider desktop-only">
+                  Target Lean Mass (lbs)
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {displayContestants.map((contestant) => {
+                const displayName = contestant.user.name || contestant.user.username || 'Anonymous';
+                
+                return (
+                  <tr key={contestant.user.id} className="hover:bg-gray-50">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {displayName}
+                      </div>
+                    </td>
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {new Date(contestant.baselineScan.scanDate).toLocaleDateString()}
+                      </div>
+                    </td>
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {contestant.baselineScan.bodyFatPercent.toFixed(1)}%
+                      </div>
+                    </td>
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap desktop-only">
+                      <div className="text-sm text-gray-900">
+                        {contestant.user.targetBodyFatPercent 
+                          ? `${contestant.user.targetBodyFatPercent.toFixed(1)}%` 
+                          : '-'
+                        }
+                      </div>
+                    </td>
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {contestant.baselineScan.leanMass.toFixed(1)}
+                      </div>
+                    </td>
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap desktop-only">
+                      <div className="text-sm text-gray-900">
+                        {contestant.user.targetLeanMass 
+                          ? `${contestant.user.targetLeanMass.toFixed(1)}` 
+                          : '-'
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Leaderboard Table */}
       <Card className="overflow-hidden card-mobile">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between flex-wrap gap-2">

@@ -11,6 +11,7 @@ import {
   type InsertScoringData,
   type UserWithStats,
   type LeaderboardEntry,
+  type ContestantEntry,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, isNull, isNotNull, ne } from "drizzle-orm";
@@ -49,6 +50,7 @@ export interface IStorage {
   upsertScoringData(data: InsertScoringData): Promise<ScoringData>;
   getScoringData(userId: string): Promise<ScoringData | undefined>;
   getLeaderboard(): Promise<LeaderboardEntry[]>;
+  getContestants(): Promise<ContestantEntry[]>;
   recalculateAllScores(): Promise<void>;
 }
 
@@ -430,6 +432,39 @@ export class DatabaseStorage implements IStorage {
     }
 
     return leaderboard;
+  }
+
+  async getContestants(): Promise<ContestantEntry[]> {
+    // Get all active users with baseline scans
+    const usersWithBaseline = await db
+      .select({
+        user: users,
+        baselineScan: dexaScans,
+      })
+      .from(users)
+      .innerJoin(dexaScans, and(
+        eq(users.id, dexaScans.userId),
+        eq(dexaScans.isBaseline, true)
+      ))
+      .where(eq(users.isActive, true))
+      .orderBy(asc(dexaScans.scanDate));
+
+    const contestants: ContestantEntry[] = usersWithBaseline.map(({ user, baselineScan }) => ({
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        targetBodyFatPercent: user.targetBodyFatPercent,
+        targetLeanMass: user.targetLeanMass,
+      },
+      baselineScan: {
+        bodyFatPercent: baselineScan.bodyFatPercent,
+        leanMass: baselineScan.leanMass,
+        scanDate: baselineScan.scanDate,
+      },
+    }));
+
+    return contestants;
   }
 
   // Helper method to calculate progress toward individual targets

@@ -187,3 +187,18 @@ export type LeaderboardEntry = {
   displayName: string; // Name from DEXA scan or user account name
   latestScan?: DexaScan;
 };
+
+export type ContestantEntry = {
+  user: {
+    id: string;
+    name: string | null;
+    username: string | null;
+    targetBodyFatPercent: number | null;
+    targetLeanMass: number | null;
+  };
+  baselineScan: {
+    bodyFatPercent: number;
+    leanMass: number;
+    scanDate: Date;
+  };
+};
