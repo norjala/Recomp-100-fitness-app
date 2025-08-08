@@ -10,12 +10,20 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { Upload as UploadIcon, CloudUpload, Save } from "lucide-react";
-import { insertDexaScanSchema, type DexaScan } from "@shared/schema";
+import { type DexaScan } from "@shared/schema";
 import { z } from "zod";
 import type { UploadResult } from "@uppy/core";
 
-const scanFormSchema = insertDexaScanSchema.omit({ userId: true, createdAt: true }).extend({
+const scanFormSchema = z.object({
   scanDate: z.string().min(1, "Scan date is required"),
+  bodyFatPercent: z.number().min(0).max(100, "Body fat percent must be between 0 and 100"),
+  leanMass: z.number().min(0, "Lean mass must be positive"),
+  totalWeight: z.number().min(0, "Total weight must be positive"),
+  fatMass: z.number().min(0, "Fat mass must be positive"),
+  rmr: z.number().min(0).optional(),
+  scanName: z.string().optional(),
+  scanImagePath: z.string().optional(),
+  notes: z.string().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   // Target goals - only for first scan
