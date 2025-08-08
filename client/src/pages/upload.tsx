@@ -26,7 +26,7 @@ const scanFormSchema = z.object({
   notes: z.string().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  // Target goals - only for first scan
+  // Target goals - optional fields
   targetBodyFatPercent: z.number().optional(),
   targetLeanMass: z.number().optional(),
 });
@@ -51,9 +51,20 @@ export default function Upload() {
     scanImagePath: undefined as string | undefined,
     isBaseline: false,
     notes: '',
-    targetBodyFatPercent: 0,
-    targetLeanMass: 0,
+    targetBodyFatPercent: user?.targetBodyFatPercent || 0,
+    targetLeanMass: user?.targetLeanMass || 0,
   });
+
+  // Update target fields when user data changes
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        targetBodyFatPercent: prev.targetBodyFatPercent || user.targetBodyFatPercent || 0,
+        targetLeanMass: prev.targetLeanMass || user.targetLeanMass || 0,
+      }));
+    }
+  }, [user]);
   
   const [uploadedScanId, setUploadedScanId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -67,7 +78,7 @@ export default function Upload() {
   });
 
   const isFirstScan = userScans.length === 0;
-  const needsTargetGoals = isFirstScan && (!user?.targetBodyFatPercent || !user?.targetLeanMass);
+  const needsTargetGoals = isFirstScan; // Show header only for first scan
 
   // Mutation to update user target goals
   const updateUserTargetsMutation = useMutation({
@@ -82,11 +93,11 @@ export default function Upload() {
 
   const createScanMutation = useMutation({
     mutationFn: async (data: ScanFormData) => {
-      // If this is first scan and has target goals, update user targets first
-      if (needsTargetGoals && data.targetBodyFatPercent && data.targetLeanMass) {
+      // If target goals are provided, update user targets first
+      if ((data.targetBodyFatPercent && data.targetBodyFatPercent > 0) || (data.targetLeanMass && data.targetLeanMass > 0)) {
         await updateUserTargetsMutation.mutateAsync({
-          targetBodyFatPercent: data.targetBodyFatPercent,
-          targetLeanMass: data.targetLeanMass,
+          targetBodyFatPercent: data.targetBodyFatPercent || user?.targetBodyFatPercent || 0,
+          targetLeanMass: data.targetLeanMass || user?.targetLeanMass || 0,
         });
       }
       
@@ -451,72 +462,74 @@ export default function Upload() {
                   </div>
                 </div>
 
-                {/* Target Goals Section - Only show for first scan */}
+                {/* Target Goals Section - Show for first scan */}
                 {needsTargetGoals && (
                   <div className="border-t pt-4 mt-4">
                     <h5 className="font-medium text-gray-900 mb-3">Set Your Target Goals</h5>
                     <p className="text-sm text-gray-600 mb-4">Define your body composition targets for the 100-day challenge</p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="targetBodyFat">Target Body Fat %</Label>
-                        <Input
-                          id="targetBodyFat"
-                          type="number"
-                          step="0.1"
-                          min="1"
-                          max="50"
-                          placeholder="15.0"
-                          value={formData.targetBodyFatPercent || ''}
-                          onChange={(e) => handleInputChange('targetBodyFatPercent', parseFloat(e.target.value) || 0)}
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="targetLeanMass">Target Lean Mass (lbs)</Label>
-                        <Input
-                          id="targetLeanMass"
-                          type="number"
-                          step="0.1"
-                          min="50"
-                          placeholder="145.0"
-                          value={formData.targetLeanMass || ''}
-                          onChange={(e) => handleInputChange('targetLeanMass', parseFloat(e.target.value) || 0)}
-                          required
-                        />
-                      </div>
-                    </div>
                   </div>
                 )}
                 
-                <div>
-                  <Label htmlFor="bodyFat">Body Fat %</Label>
-                  <Input
-                    id="bodyFat"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    placeholder="15.2"
-                    value={formData.bodyFatPercent || ''}
-                    onChange={(e) => handleInputChange('bodyFatPercent', parseFloat(e.target.value) || 0)}
-                    required
-                  />
+                {/* Body Fat % - Current and Target side by side */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="bodyFat">Body Fat % (Current)</Label>
+                    <Input
+                      id="bodyFat"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      placeholder="15.2"
+                      value={formData.bodyFatPercent || ''}
+                      onChange={(e) => handleInputChange('bodyFatPercent', parseFloat(e.target.value) || 0)}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="targetBodyFat">Target Body Fat % (Optional)</Label>
+                    <Input
+                      id="targetBodyFat"
+                      type="number"
+                      step="0.1"
+                      min="1"
+                      max="50"
+                      placeholder="15.0"
+                      value={formData.targetBodyFatPercent || ''}
+                      onChange={(e) => handleInputChange('targetBodyFatPercent', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
                 </div>
                 
-                <div>
-                  <Label htmlFor="leanMass">Lean Mass (lbs)</Label>
-                  <Input
-                    id="leanMass"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    placeholder="142.5"
-                    value={formData.leanMass || ''}
-                    onChange={(e) => handleInputChange('leanMass', parseFloat(e.target.value) || 0)}
-                    required
-                  />
+                {/* Lean Mass - Current and Target side by side */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="leanMass">Lean Mass (lbs)</Label>
+                    <Input
+                      id="leanMass"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      placeholder="142.5"
+                      value={formData.leanMass || ''}
+                      onChange={(e) => handleInputChange('leanMass', parseFloat(e.target.value) || 0)}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="targetLeanMass">Target Lean Mass (lbs) (Optional)</Label>
+                    <Input
+                      id="targetLeanMass"
+                      type="number"
+                      step="0.1"
+                      min="50"
+                      placeholder="145.0"
+                      value={formData.targetLeanMass || ''}
+                      onChange={(e) => handleInputChange('targetLeanMass', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
                 </div>
                 
                 <div>
