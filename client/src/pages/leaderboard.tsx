@@ -20,9 +20,15 @@ export default function Leaderboard() {
   });
 
   // Challenge countdown logic - same as dashboard
+  const challengeStartDate = new Date('2025-08-04');
   const challengeEndDate = new Date('2025-11-14');
   const today = new Date();
   const daysRemaining = Math.max(0, Math.ceil((challengeEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+  
+  // Calculate progress percentage (how much time has elapsed)
+  const totalChallengeDays = Math.ceil((challengeEndDate.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24));
+  const daysElapsed = Math.max(0, Math.ceil((today.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const timeProgressPercent = Math.min(100, Math.max(0, (daysElapsed / totalChallengeDays) * 100));
 
   if (isLoading || contestantsLoading) {
     return <LeaderboardSkeleton />;
@@ -105,6 +111,9 @@ export default function Leaderboard() {
                 <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider desktop-only">
                   Target Lean Mass (lbs)
                 </th>
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Time Left
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -147,6 +156,17 @@ export default function Leaderboard() {
                           ? `${contestant.user.targetLeanMass.toFixed(1)}` 
                           : '-'
                         }
+                      </div>
+                    </td>
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900 mb-1">
+                        {daysRemaining > 0 ? `${daysRemaining} days left` : 'Complete!'}
+                      </div>
+                      <div className="flex items-center">
+                        <Progress 
+                          value={timeProgressPercent} 
+                          className="w-16 h-2"
+                        />
                       </div>
                     </td>
                   </tr>
