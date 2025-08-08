@@ -27,7 +27,7 @@ export default function AuthPage() {
   const loginForm = useForm<LoginUser>({
     resolver: zodResolver(loginUserSchema),
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
     },
   });
@@ -35,7 +35,7 @@ export default function AuthPage() {
   const registerForm = useForm<RegisterUser>({
     resolver: zodResolver(registerUserSchema),
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
     },
   });
@@ -89,15 +89,15 @@ export default function AuthPage() {
                     <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                       <FormField
                         control={loginForm.control}
-                        name="email"
+                        name="identifier"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email</FormLabel>
+                            <FormLabel>Username or Email</FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                  placeholder="your@email.com"
+                                  placeholder="username or your@email.com"
                                   className="pl-10"
                                   {...field}
                                 />
@@ -157,15 +157,15 @@ export default function AuthPage() {
                     <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
                       <FormField
                         control={registerForm.control}
-                        name="email"
+                        name="identifier"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email</FormLabel>
+                            <FormLabel>Username or Email</FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                  placeholder="your@email.com"
+                                  placeholder="username or your@email.com"
                                   className="pl-10"
                                   {...field}
                                 />

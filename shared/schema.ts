@@ -24,10 +24,11 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table for email/password authentication
+// User storage table for username/email and password authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique().notNull(),
+  username: varchar("username").unique(), // Optional unique username
+  email: varchar("email").unique(), // Optional unique email
   password: varchar("password").notNull(),
   isEmailVerified: boolean("is_email_verified").default(false).notNull(),
   emailVerificationToken: varchar("email_verification_token"),
@@ -122,21 +123,25 @@ export const insertScoringDataSchema = createInsertSchema(scoringData).omit({
 });
 
 // Auth schemas
-export const registerUserSchema = createInsertSchema(users).pick({
-  email: true,
-  password: true,
-}).extend({
-  email: z.string().email("Invalid email address"),
+export const registerUserSchema = z.object({
+  identifier: z.string().min(1, "Username or email is required"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+}).refine((data) => {
+  // Check if identifier is email format
+  const isEmail = z.string().email().safeParse(data.identifier).success;
+  return isEmail || data.identifier.length >= 3; // Username must be at least 3 chars
+}, {
+  message: "Must be a valid email or username (minimum 3 characters)",
+  path: ["identifier"]
 });
 
 export const loginUserSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  identifier: z.string().min(1, "Username or email is required"),
   password: z.string().min(1, "Password is required"),
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  identifier: z.string().min(1, "Username or email is required"),
 });
 
 export const resetPasswordSchema = z.object({

@@ -19,9 +19,11 @@ export interface IStorage {
   // User operations for email/password auth
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByIdentifier(identifier: string): Promise<User | undefined>; // Email or username
   getUserByVerificationToken(token: string): Promise<User | undefined>;
   getUserByResetToken(token: string): Promise<User | undefined>;
-  createUser(userData: { email: string; password: string; emailVerificationToken: string }): Promise<User>;
+  createUser(userData: { username?: string; email?: string; password: string; emailVerificationToken?: string }): Promise<User>;
   verifyUserEmail(id: string): Promise<void>;
   updateVerificationToken(id: string, token: string): Promise<void>;
   setPasswordResetToken(id: string, token: string, expires: Date): Promise<void>;
@@ -72,7 +74,23 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(userData: { email: string; password: string; emailVerificationToken: string }): Promise<User> {
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByIdentifier(identifier: string): Promise<User | undefined> {
+    // Check if identifier is email format
+    const isEmail = identifier.includes('@');
+    
+    if (isEmail) {
+      return this.getUserByEmail(identifier);
+    } else {
+      return this.getUserByUsername(identifier);
+    }
+  }
+
+  async createUser(userData: { username?: string; email?: string; password: string; emailVerificationToken?: string }): Promise<User> {
     const [user] = await db.insert(users).values(userData).returning();
     return user;
   }
@@ -349,9 +367,17 @@ export class DatabaseStorage implements IStorage {
         }
       }
       
-      // Final fallback to user name or email
+      // Final fallback to user name, email, or username
       if (displayName === 'Anonymous') {
-        displayName = user.name?.split(' ')[0] || user.email.split('@')[0] || 'Anonymous';
+        if (user.name) {
+          displayName = user.name.split(' ')[0];
+        } else if (user.email) {
+          displayName = user.email.split('@')[0];
+        } else if (user.username) {
+          displayName = user.username;
+        } else {
+          displayName = 'Anonymous';
+        }
       }
 
       let bodyFatChange = 0;

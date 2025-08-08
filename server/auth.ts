@@ -63,42 +63,60 @@ export function setupAuth(app: Express) {
   app.post("/api/register", async (req, res) => {
     try {
       const userData: RegisterUser = req.body;
+      const isEmail = userData.identifier.includes('@');
       
       // Check if user already exists
-      const existingUser = await storage.getUserByEmail(userData.email);
+      const existingUser = await storage.getUserByIdentifier(userData.identifier);
       if (existingUser) {
-        return res.status(400).json({ message: "User already exists" });
+        return res.status(400).json({ 
+          message: `${isEmail ? 'Email' : 'Username'} already exists` 
+        });
       }
 
-      // Hash password and create verification token
+      // Hash password and create verification token (only needed for email accounts)
       const hashedPassword = await hashPassword(userData.password);
-      const verificationToken = generateToken();
+      const verificationToken = isEmail ? generateToken() : undefined;
 
-      // Create user
-      const user = await storage.createUser({
-        email: userData.email,
+      // Create user data
+      const userCreateData = {
         password: hashedPassword,
-        emailVerificationToken: verificationToken,
-      });
+        ...(isEmail ? { 
+          email: userData.identifier, 
+          emailVerificationToken: verificationToken 
+        } : { 
+          username: userData.identifier,
+          isEmailVerified: true // Username accounts don't need email verification
+        })
+      };
 
-      // Send verification email (with development bypass)
-      const emailSent = await sendVerificationEmail(user.email, verificationToken);
-      if (!emailSent) {
-        console.error("Failed to send verification email");
-        // In development, auto-verify email if SendGrid fails
-        if (process.env.NODE_ENV === "development") {
-          await storage.verifyUserEmail(user.id);
-          return res.status(201).json({ 
-            message: "Account created and automatically verified (development mode). You can now log in.",
-            requiresVerification: false 
-          });
+      const user = await storage.createUser(userCreateData);
+
+      // Send verification email for email accounts (with development bypass)
+      if (isEmail && user.email) {
+        const emailSent = await sendVerificationEmail(user.email, verificationToken!);
+        if (!emailSent) {
+          console.error("Failed to send verification email");
+          // In development, auto-verify email if SendGrid fails
+          if (process.env.NODE_ENV === "development") {
+            await storage.verifyUserEmail(user.id);
+            return res.status(201).json({ 
+              message: "Account created and automatically verified (development mode). You can now log in.",
+              requiresVerification: false 
+            });
+          }
         }
-      }
 
-      res.status(201).json({ 
-        message: "Account created successfully. Please check your email to verify your account.",
-        requiresVerification: true 
-      });
+        res.status(201).json({ 
+          message: "Account created successfully. Please check your email to verify your account.",
+          requiresVerification: true 
+        });
+      } else {
+        // Username accounts are ready to use immediately
+        res.status(201).json({ 
+          message: "Account created successfully. You can now log in.",
+          requiresVerification: false 
+        });
+      }
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -107,14 +125,15 @@ export function setupAuth(app: Express) {
 
   app.post("/api/login", async (req, res) => {
     try {
-      const { email, password }: LoginUser = req.body;
+      const { identifier, password }: LoginUser = req.body;
 
-      const user = await storage.getUserByEmail(email);
+      const user = await storage.getUserByIdentifier(identifier);
       if (!user || !(await comparePasswords(password, user.password))) {
-        return res.status(401).json({ message: "Invalid email or password" });
+        return res.status(401).json({ message: "Invalid username/email or password" });
       }
 
-      if (!user.isEmailVerified) {
+      // Only check email verification for email accounts (users with email addresses)
+      if (user.email && !user.isEmailVerified) {
         return res.status(401).json({ 
           message: "Please verify your email address before logging in",
           requiresVerification: true 
@@ -201,9 +220,16 @@ export function setupAuth(app: Express) {
 
   app.post("/api/forgot-password", async (req, res) => {
     try {
-      const { email }: ForgotPassword = req.body;
+      const { identifier }: ForgotPassword = req.body;
+      const isEmail = identifier.includes('@');
+
+      if (!isEmail) {
+        return res.status(400).json({ 
+          message: "Password reset is only available for email accounts. Please contact support if you need help with your username account." 
+        });
+      }
       
-      const user = await storage.getUserByEmail(email);
+      const user = await storage.getUserByEmail(identifier);
       if (!user) {
         // Don't reveal whether email exists
         return res.json({ message: "If that email exists, we've sent a password reset link" });
@@ -214,7 +240,7 @@ export function setupAuth(app: Express) {
 
       await storage.setPasswordResetToken(user.id, resetToken, resetExpires);
       
-      const emailSent = await sendPasswordResetEmail(user.email, resetToken);
+      const emailSent = await sendPasswordResetEmail(user.email!, resetToken);
       if (!emailSent) {
         console.error("Failed to send password reset email");
       }
@@ -261,7 +287,7 @@ export function setupAuth(app: Express) {
       const verificationToken = generateToken();
       await storage.updateVerificationToken(user.id, verificationToken);
       
-      const emailSent = await sendVerificationEmail(user.email, verificationToken);
+      const emailSent = await sendVerificationEmail(user.email!, verificationToken);
       if (!emailSent) {
         console.error("Failed to send verification email");
         return res.status(500).json({ message: "Failed to send verification email" });
