@@ -16,7 +16,7 @@ export default function Leaderboard() {
   });
 
   // Challenge countdown logic - same as dashboard
-  const challengeEndDate = new Date('2025-11-12');
+  const challengeEndDate = new Date('2025-11-14');
   const today = new Date();
   const daysRemaining = Math.max(0, Math.ceil((challengeEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
 

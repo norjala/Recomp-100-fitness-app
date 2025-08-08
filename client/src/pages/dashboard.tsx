@@ -22,7 +22,7 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
-  const { data: scans } = useQuery({
+  const { data: scans = [] } = useQuery({
     queryKey: ["/api/users", user?.id, "scans"],
     enabled: !!user,
   });
@@ -33,9 +33,9 @@ export default function Dashboard() {
   });
 
   const currentRank = leaderboard?.find(entry => entry.user.id === user?.id)?.rank;
-  // Challenge runs from August 4, 2025 to November 12, 2025 (100 days)
+  // Challenge runs from August 4, 2025 to November 14, 2025 (102 days)
   const challengeStartDate = new Date('2025-08-04');
-  const challengeEndDate = new Date('2025-11-12');
+  const challengeEndDate = new Date('2025-11-14');
   const today = new Date();
   
   // Calculate days remaining until challenge ends
@@ -75,7 +75,7 @@ export default function Dashboard() {
     : 0;
 
   // Check if user has minimum required scans for scoring
-  const hasMinimumScans = scans && scans.length >= 2 && baselineScan && latestScan;
+  const hasMinimumScans = scans.length >= 2 && baselineScan && latestScan;
 
   return (
     <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
@@ -92,12 +92,8 @@ export default function Dashboard() {
           <div>
             <h3 className="text-lg md:text-xl font-semibold mb-1 md:mb-2">Challenge Progress</h3>
             <p className="text-blue-100 text-sm md:text-base">
-              {daysRemaining > 0 ? `${daysRemaining} days left` : 'Challenge complete!'}
+              {daysRemaining > 0 ? `${daysRemaining} days left until 11/14` : 'Challenge complete!'}
             </p>
-          </div>
-          <div className="text-right">
-            <div className="text-xl md:text-2xl font-bold">#{hasMinimumScans && currentRank ? currentRank : '--'}</div>
-            <p className="text-blue-100 text-sm md:text-base">Current Rank</p>
           </div>
           <div className="w-full sm:w-auto">
             <div className="bg-white bg-opacity-20 rounded-full h-2">
@@ -122,7 +118,7 @@ export default function Dashboard() {
                 <h3 className="text-lg font-medium text-amber-800">Upload Your Progress Scan</h3>
                 <p className="text-amber-700">
                   You need at least 2 DEXA scans (1 baseline + 1 progress) to calculate your competition score.
-                  {scans && scans.length === 1 && baselineScan 
+                  {scans.length === 1 && baselineScan 
                     ? " You have your baseline scan - now upload a progress scan to see your scores!"
                     : " Upload your baseline scan and a progress scan to get started."
                   }
@@ -202,10 +198,10 @@ export default function Dashboard() {
                 ) : (
                   <div>
                     <p className="text-2xl font-bold text-gray-900">
-                      {userScore ? userScore.totalScore.toFixed(1) : '0.0'}
+                      {userScore?.totalScore?.toFixed(1) || '0.0'}
                     </p>
                     <p className="text-sm text-gray-500">
-                      FLS: {userScore ? userScore.fatLossScore.toFixed(1) : '0.0'} | MGS: {userScore ? userScore.muscleGainScore.toFixed(1) : '0.0'}
+                      FLS: {userScore?.fatLossScore?.toFixed(1) || '0.0'} | MGS: {userScore?.muscleGainScore?.toFixed(1) || '0.0'}
                     </p>
                   </div>
                 )}
@@ -222,7 +218,7 @@ export default function Dashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Scans</p>
-                <p className="text-2xl font-bold text-gray-900">{scans?.length || 0}</p>
+                <p className="text-2xl font-bold text-gray-900">{scans.length}</p>
                 <Button 
                   size="sm" 
                   className="mt-2 bg-secondary hover:bg-emerald-700"

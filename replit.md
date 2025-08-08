@@ -18,8 +18,8 @@ Preferred communication style: Simple, everyday language.
 - Fixed leaderboard display issues where users weren't appearing due to missing baseline scans
 - Added comprehensive cache invalidation after scan uploads for automatic app refresh
 - Updated dashboard countdown from "Day X of 100" to "X days left" with global challenge dates
-- All users see same countdown regardless of when they join (Aug 4 - Nov 12, 2025)
-- Added "X days remaining" countdown to leaderboard header showing time until Nov 12, 2025
+- All users see same countdown regardless of when they join (Aug 4 - Nov 14, 2025)
+- Added "X days remaining" countdown to leaderboard header showing time until Nov 14, 2025
 - Replaced Replit Auth with simple email/password authentication system
 - Added email confirmation and password reset functionality using SendGrid
 - Updated database schema to support traditional user authentication
@@ -28,7 +28,7 @@ Preferred communication style: Simple, everyday language.
 - Authentication system is fully functional with manual verification option
 - Fixed scoring system to calculate from actual DEXA scan data instead of hardcoded values
 - Implemented gender-specific body composition scoring algorithm
-- Updated challenge timeline to single 100-day competition (August 4 - November 12, 2025)
+- Updated challenge timeline to single 100-day competition (August 4 - November 14, 2025)
 - Dashboard now displays real calculated scores based on body fat percentage reduction and lean mass gains
 - **MOBILE OPTIMIZATION COMPLETE**: Added comprehensive mobile-first responsive design
 - Implemented touch-friendly mobile navigation with bottom tab bar
