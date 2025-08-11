@@ -356,6 +356,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin routes - only accessible by username "Jaron"
+  const requireAdmin = (req: any, res: any, next: any) => {
+    if (!req.user || req.user.username !== "Jaron") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  };
+
+  // Get all users (admin only)
+  app.get('/api/admin/users', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Create user (admin only)
+  app.post('/api/admin/users', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { username, email, password, name } = req.body;
+      
+      if (!password || (!username && !email)) {
+        return res.status(400).json({ message: "Password and either username or email required" });
+      }
+
+      // Hash the password
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      const user = await storage.adminCreateUser({
+        username: username || undefined,
+        email: email || undefined,
+        password: hashedPassword,
+        name: name || undefined,
+      });
+      
+      res.status(201).json(user);
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      if (error.code === '23505') { // Unique violation
+        res.status(400).json({ message: "Username or email already exists" });
+      } else {
+        res.status(500).json({ message: "Failed to create user" });
+      }
+    }
+  });
+
+  // Update user (admin only)
+  app.patch('/api/admin/users/:id', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      const updates = req.body;
+      
+      // Don't allow updating sensitive fields through this endpoint
+      delete updates.id;
+      delete updates.password;
+      delete updates.passwordResetToken;
+      delete updates.emailVerificationToken;
+      
+      const user = await storage.adminUpdateUser(userId, updates);
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Delete user (admin only)
+  app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      
+      // Prevent admin from deleting themselves
+      if (userId === req.user.id) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+      
+      await storage.deleteUser(userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // Reset user password (admin only)
+  app.post('/api/admin/users/:id/reset-password', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Generate a temporary password
+      const tempPassword = Math.random().toString(36).slice(-8);
+      const bcrypt = require('bcrypt');
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      
+      // Update user's password
+      await storage.adminUpdateUser(userId, { password: hashedPassword });
+      
+      res.json({ message: `Password reset. Temporary password: ${tempPassword}` });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

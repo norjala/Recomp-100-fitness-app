@@ -17,6 +17,7 @@ export function Header() {
     { href: "/leaderboard", label: "Leaderboard", id: "leaderboard" },
     { href: "/profile", label: "My Profile", id: "profile" },
     { href: "/upload", label: "Upload Scan", id: "upload" },
+    ...(user.username === "Jaron" ? [{ href: "/admin", label: "Admin", id: "admin" }] : []),
   ];
 
   const isActive = (href: string) => {

@@ -12,6 +12,7 @@ import Dashboard from "@/pages/dashboard";
 import Leaderboard from "@/pages/leaderboard";
 import Profile from "@/pages/profile";
 import Upload from "@/pages/upload";
+import AdminPage from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 
 // Layout
@@ -29,6 +30,7 @@ function Router() {
         <VerifiedRoute path="/leaderboard" component={Leaderboard} />
         <VerifiedRoute path="/profile" component={Profile} />
         <VerifiedRoute path="/upload" component={Upload} />
+        <VerifiedRoute path="/admin" component={AdminPage} />
         <Route component={NotFound} />
       </Switch>
     </div>

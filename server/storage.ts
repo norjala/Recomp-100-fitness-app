@@ -52,6 +52,12 @@ export interface IStorage {
   getLeaderboard(): Promise<LeaderboardEntry[]>;
   getContestants(): Promise<ContestantEntry[]>;
   recalculateAllScores(): Promise<void>;
+  
+  // Admin operations
+  getAllUsers(): Promise<User[]>;
+  deleteUser(id: string): Promise<void>;
+  adminCreateUser(userData: { username?: string; email?: string; password: string; name?: string }): Promise<User>;
+  adminUpdateUser(id: string, updates: Partial<User>): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -465,6 +471,47 @@ export class DatabaseStorage implements IStorage {
     }));
 
     return contestants;
+  }
+
+  // Admin operations
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(asc(users.createdAt));
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    // Delete user's DEXA scans first
+    await db.delete(dexaScans).where(eq(dexaScans.userId, id));
+    
+    // Delete user's scoring data
+    await db.delete(scoringData).where(eq(scoringData.userId, id));
+    
+    // Delete the user
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  async adminCreateUser(userData: { username?: string; email?: string; password: string; name?: string }): Promise<User> {
+    const [user] = await db.insert(users).values({
+      username: userData.username || null,
+      email: userData.email || null,
+      password: userData.password,
+      name: userData.name || null,
+      isEmailVerified: userData.email ? false : true, // Username accounts are auto-verified
+      isActive: true,
+    }).returning();
+    
+    return user;
+  }
+
+  async adminUpdateUser(id: string, updates: Partial<User>): Promise<User> {
+    const [user] = await db.update(users)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+    
+    return user;
   }
 
   // Helper method to calculate progress toward individual targets
