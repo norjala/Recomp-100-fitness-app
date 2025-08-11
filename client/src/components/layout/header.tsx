@@ -12,9 +12,7 @@ export function Header() {
     return null;
   }
 
-  // Debug: log user data to see what we have
-  console.log("Header user data:", user);
-  console.log("Is Jaron?", user.username === "Jaron", user.username);
+
 
   const navItems = [
     { href: "/", label: "Dashboard", id: "dashboard" },
