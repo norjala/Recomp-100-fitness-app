@@ -52,8 +52,13 @@ Common DEXA scan sections to look for:
 - "Total Body" summary section
 - "Composition" or "Body Composition" tables
 - Values labeled as "Fat %", "Lean Mass", "Total Mass", "Fat Mass"
-- RMR or metabolic rate sections
+- RMR, metabolic rate, or "Resting metabolic" sections - look for values like "1825 cal", "RMR: 1650", etc.
 - Patient information header
+
+IMPORTANT: For RMR (Resting Metabolic Rate):
+- Look for sections labeled "Resting metabolic", "RMR", "Metabolic rate", or similar
+- Extract the numerical value in calories (e.g., if you see "1825 cal", extract 1825)
+- Common formats: "1825 cal", "RMR: 1650 calories", "Resting metabolic: 1750"
 
 Return JSON in this exact format:
 {
@@ -76,7 +81,7 @@ If you cannot find clear DEXA scan data, return confidence: 0.1 and reasonable e
           content: [
             {
               type: "text",
-              text: "Extract body composition data from this DEXA scan image. Look for body fat percentage, lean mass (lbs), total weight (lbs), and scan date. Return as JSON."
+              text: "Extract body composition data from this DEXA scan image. Look for body fat percentage, lean mass (lbs), total weight (lbs), fat mass (lbs), and resting metabolic rate (RMR). Pay special attention to any section labeled 'Resting metabolic' - extract the calorie value (e.g., if you see '1825 cal', extract 1825 as the rmr value). Return as JSON."
             },
             {
               type: "image_url",
@@ -92,6 +97,9 @@ If you cannot find clear DEXA scan data, return confidence: 0.1 and reasonable e
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
+    
+    // Debug logging to see what OpenAI extracted
+    console.log("OpenAI extraction result:", result);
     
     // Validate and sanitize the extracted data
     const bodyFatPercent = Number(result.bodyFatPercent) || 0;
