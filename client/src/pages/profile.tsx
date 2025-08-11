@@ -28,6 +28,8 @@ export default function Profile() {
   const { user: authUser, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [editingScan, setEditingScan] = useState<DexaScan | null>(null);
+  const [targetBodyFat, setTargetBodyFat] = useState<string>('');
+  const [targetLeanMass, setTargetLeanMass] = useState<string>('');
 
   const { data: user, isLoading: userLoading } = useQuery<UserWithStats>({
     queryKey: ["/api/user"],
@@ -107,8 +109,34 @@ export default function Profile() {
     resolver: zodResolver(editFormSchema),
   });
 
+  // Update user target goals mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async (updates: { targetBodyFatPercent?: number; targetLeanMass?: number }) => {
+      const res = await apiRequest("PUT", "/api/user/targets", updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: "Target goals updated",
+        description: "Your target goals have been successfully updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update failed", 
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEditScan = (scan: DexaScan) => {
     setEditingScan(scan);
+    // Set target goals from user profile
+    setTargetBodyFat(user?.targetBodyFatPercent?.toString() || '');
+    setTargetLeanMass(user?.targetLeanMass?.toString() || '');
+    
     // Try to split the scan name into first and last name
     const nameParts = scan.scanName ? scan.scanName.split(/[,\s]+/).filter(part => part.trim()) : [];
     const firstName = nameParts.length > 1 ? nameParts[1] : nameParts[0] || '';
@@ -133,6 +161,18 @@ export default function Profile() {
     
     // Extract the scan update data (excluding firstName/lastName which are for profile)
     const { firstName, lastName, ...scanUpdateData } = data;
+    
+    // Update target goals if they changed
+    const targetGoalsChanged = 
+      (targetBodyFat && parseFloat(targetBodyFat) !== user?.targetBodyFatPercent) ||
+      (targetLeanMass && parseFloat(targetLeanMass) !== user?.targetLeanMass);
+      
+    if (targetGoalsChanged) {
+      const updates: { targetBodyFatPercent?: number; targetLeanMass?: number } = {};
+      if (targetBodyFat) updates.targetBodyFatPercent = parseFloat(targetBodyFat);
+      if (targetLeanMass) updates.targetLeanMass = parseFloat(targetLeanMass);
+      updateUserMutation.mutate(updates);
+    }
     
     editScanMutation.mutate({
       scanId: editingScan.id,
@@ -468,6 +508,38 @@ export default function Profile() {
                   </FormItem>
                 )}
               />
+              
+              {/* Target Goals Section */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-gray-700">Update Target Goals (Optional)</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Target Body Fat %
+                    </label>
+                    <Input 
+                      type="number" 
+                      step="0.1" 
+                      placeholder="13"
+                      value={targetBodyFat}
+                      onChange={(e) => setTargetBodyFat(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Target Lean Mass (lbs)
+                    </label>
+                    <Input 
+                      type="number" 
+                      step="0.1" 
+                      placeholder="125"
+                      value={targetLeanMass}
+                      onChange={(e) => setTargetLeanMass(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <FormField
                 control={form.control}
                 name="notes"

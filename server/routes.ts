@@ -67,14 +67,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const { targetBodyFatPercent, targetLeanMass } = req.body;
       
-      if (!targetBodyFatPercent || !targetLeanMass) {
-        return res.status(400).json({ message: "targetBodyFatPercent and targetLeanMass are required" });
+      // Build the update object with only provided fields
+      const updates: any = {};
+      if (targetBodyFatPercent !== undefined && targetBodyFatPercent !== null && targetBodyFatPercent !== '') {
+        updates.targetBodyFatPercent = Number(targetBodyFatPercent);
+      }
+      if (targetLeanMass !== undefined && targetLeanMass !== null && targetLeanMass !== '') {
+        updates.targetLeanMass = Number(targetLeanMass);
       }
       
-      const updatedUser = await storage.updateUser(userId, {
-        targetBodyFatPercent: Number(targetBodyFatPercent),
-        targetLeanMass: Number(targetLeanMass),
-      });
+      // Require at least one field to update
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "At least one target goal must be provided" });
+      }
+      
+      const updatedUser = await storage.updateUser(userId, updates);
       
       res.json(updatedUser);
     } catch (error) {
