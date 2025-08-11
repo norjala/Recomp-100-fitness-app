@@ -2,7 +2,8 @@ import { Link, useLocation, useRoute } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
 
 export function Header() {
   const [location] = useLocation();
@@ -34,6 +35,11 @@ export function Header() {
 
   const handleLogout = () => {
     logoutMutation.mutate();
+  };
+
+  // Temporary: Force refresh user data
+  const handleRefreshUser = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/user"] });
   };
 
   return (
@@ -79,6 +85,14 @@ export function Header() {
               </Button>
             </Link>
             <div className="flex items-center space-x-2 md:space-x-3">
+              <Button
+                onClick={handleRefreshUser}
+                variant="outline"
+                size="sm" 
+                className="text-xs"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </Button>
               <Avatar className="h-8 w-8">
                 <AvatarImage 
                   src={user.profileImageUrl || undefined} 
