@@ -14,12 +14,16 @@ export function Header() {
 
 
 
+  // Debug: log user data to console
+  console.log("Header - user object:", user);
+  console.log("Header - username check:", user?.username, user?.username === "Jaron");
+
   const navItems = [
     { href: "/", label: "Dashboard", id: "dashboard" },
     { href: "/leaderboard", label: "Leaderboard", id: "leaderboard" },
     { href: "/profile", label: "My Profile", id: "profile" },
     { href: "/upload", label: "Upload Scan", id: "upload" },
-    ...(user.username === "Jaron" ? [{ href: "/admin", label: "Admin", id: "admin" }] : []),
+    ...(user?.username === "Jaron" ? [{ href: "/admin", label: "Admin", id: "admin" }] : []),
   ];
 
   const isActive = (href: string) => {

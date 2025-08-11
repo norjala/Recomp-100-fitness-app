@@ -13,6 +13,10 @@ export function MobileNav() {
     { href: "/profile", label: "Profile", icon: User },
   ];
 
+  // Debug: log user data to console  
+  console.log("MobileNav - user object:", user);
+  console.log("MobileNav - username check:", user?.username, user?.username === "Jaron");
+
   const navItems = user?.username === "Jaron" 
     ? [...baseItems, { href: "/admin", label: "Admin", icon: Settings }]
     : baseItems;
