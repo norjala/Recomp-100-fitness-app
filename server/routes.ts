@@ -112,6 +112,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin endpoint to fix baseline scans for all users
+  app.post('/api/admin/fix-baselines', async (req, res) => {
+    try {
+      await storage.fixAllBaselines();
+      res.json({ message: "Baseline scans fixed for all users" });
+    } catch (error) {
+      console.error("Error fixing baselines:", error);
+      res.status(500).json({ message: "Failed to fix baseline scans" });
+    }
+  });
+
   // Get user's DEXA scans
   app.get('/api/users/:userId/scans', requireAuth, async (req: any, res) => {
     try {

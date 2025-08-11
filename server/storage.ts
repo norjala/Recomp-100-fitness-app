@@ -238,8 +238,8 @@ export class DatabaseStorage implements IStorage {
       .where(eq(dexaScans.userId, userId))
       .orderBy(asc(dexaScans.scanDate));
 
-    // Only proceed if user has at least 2 scans
-    if (allScans.length < 2) {
+    // Mark baseline for any user with scans
+    if (allScans.length < 1) {
       return;
     }
 
@@ -748,6 +748,22 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
 
     return result || null;
+  }
+
+  // Fix baseline scans for all users - marks earliest scan as baseline
+  async fixAllBaselines(): Promise<void> {
+    // Get all users who have scans
+    const usersWithScans = await db
+      .selectDistinct({ userId: dexaScans.userId })
+      .from(dexaScans);
+    
+    console.log(`Fixing baseline scans for ${usersWithScans.length} users`);
+    
+    for (const { userId } of usersWithScans) {
+      await this.autoManageBaselineScan(userId);
+    }
+    
+    console.log('Finished fixing baseline scans for all users');
   }
 }
 
