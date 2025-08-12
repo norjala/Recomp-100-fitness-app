@@ -22,12 +22,12 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
-  const { data: scans = [] } = useQuery({
+  const { data: scans = [] } = useQuery<any[]>({
     queryKey: ["/api/users", user?.id, "scans"],
     enabled: !!user,
   });
 
-  const { data: userScore } = useQuery({
+  const { data: userScore = {} } = useQuery<any>({
     queryKey: ["/api/scoring", user?.id],
     enabled: !!user,
   });
