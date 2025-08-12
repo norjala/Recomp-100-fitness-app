@@ -13,10 +13,24 @@ export default function Leaderboard() {
   
   const { data: leaderboard, isLoading } = useQuery<LeaderboardEntry[]>({
     queryKey: ["/api/leaderboard"],
+    queryFn: async () => {
+      const response = await fetch("/api/leaderboard");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    },
   });
 
   const { data: contestants, isLoading: contestantsLoading, error: contestantsError } = useQuery<ContestantEntry[]>({
     queryKey: ["/api/contestants"],
+    queryFn: async () => {
+      const response = await fetch("/api/contestants");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    },
   });
   
   // Debug logging
