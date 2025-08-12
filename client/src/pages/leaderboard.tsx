@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trophy, Target, Zap } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import type { ContestantEntry } from "@shared/schema";
 
@@ -20,11 +21,6 @@ export default function Leaderboard() {
       return response.json();
     },
   });
-
-  // Challenge countdown logic
-  const challengeEndDate = new Date('2025-11-14');
-  const today = new Date();
-  const daysRemaining = Math.max(0, Math.ceil((challengeEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
 
   if (contestantsLoading) {
     return <LeaderboardSkeleton />;
@@ -46,7 +42,14 @@ export default function Leaderboard() {
     );
   }
 
-
+  // Challenge countdown logic
+  const challengeStartDate = new Date('2025-08-04');
+  const challengeEndDate = new Date('2025-11-14');
+  const today = new Date();
+  const daysRemaining = Math.max(0, Math.ceil((challengeEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+  const totalChallengeDays = Math.ceil((challengeEndDate.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24));
+  const daysElapsed = Math.max(0, Math.ceil((today.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const timeProgressPercent = Math.min(100, Math.max(0, (daysElapsed / totalChallengeDays) * 100));
 
   return (
     <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow space-y-6">
@@ -64,81 +67,109 @@ export default function Leaderboard() {
         </Badge>
       </div>
 
-      {/* Contestants Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {displayContestants.map((contestant) => {
-          const displayName = contestant.user.name || contestant.user.username || 'Anonymous';
-          const isCurrentUser = currentUser?.id === contestant.user.id;
-          
-          return (
-            <Card key={contestant.user.id} className={`hover:shadow-lg transition-shadow ${isCurrentUser ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage 
-                      src={undefined} 
-                      alt={displayName}
-                    />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                      {displayName.split(' ').map(n => n[0]).join('').toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <CardTitle className="text-lg">{displayName}</CardTitle>
-                      {isCurrentUser && (
-                        <Badge className="bg-blue-500 text-white text-xs">You</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      Baseline: {new Date(contestant.baselineScan.scanDate).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                {/* Current Stats */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-3 bg-red-50 rounded-lg">
-                    <div className="text-2xl font-bold text-red-600">
-                      {contestant.baselineScan.bodyFatPercent}%
-                    </div>
-                    <div className="text-xs text-gray-500">Current Body Fat</div>
-                  </div>
-                  <div className="text-center p-3 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">
-                      {contestant.baselineScan.leanMass}
-                    </div>
-                    <div className="text-xs text-gray-500">Lean Mass (lbs)</div>
-                  </div>
-                </div>
-
-                {/* Target Goals */}
-                <div className="flex items-center space-x-2 text-sm">
-                  <Target className="h-4 w-4 text-blue-500" />
-                  <span className="text-gray-600">Goals:</span>
-                  <span className="font-medium">
-                    {contestant.user.targetBodyFatPercent ? `${contestant.user.targetBodyFatPercent}%` : '--'} BF,
-                  </span>
-                  <span className="font-medium">
-                    {contestant.user.targetLeanMass ? `${contestant.user.targetLeanMass}` : '--'} lbs LM
-                  </span>
-                </div>
-
-                {/* RMR if available */}
-                {contestant.baselineScan.restingMetabolicRate && (
-                  <div className="flex items-center space-x-2 text-sm">
-                    <Zap className="h-4 w-4 text-orange-500" />
-                    <span className="text-gray-600">RMR:</span>
-                    <span className="font-medium">{contestant.baselineScan.restingMetabolicRate} cal/day</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {/* Contestants Table */}
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Body Fat %
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Target BF %
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Lean Mass (lbs)
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Target LM (lbs)
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Days Left
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {displayContestants.map((contestant) => {
+                const displayName = contestant.user.name || contestant.user.username || 'Anonymous';
+                const isCurrentUser = currentUser?.id === contestant.user.id;
+                
+                return (
+                  <tr 
+                    key={contestant.user.id} 
+                    className={`hover:bg-gray-50 ${isCurrentUser ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage 
+                            src={undefined} 
+                            alt={displayName}
+                          />
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
+                            {displayName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="ml-4">
+                          <div className="flex items-center">
+                            <div className="text-sm font-medium text-gray-900">{displayName}</div>
+                            {isCurrentUser && (
+                              <Badge className="ml-2 bg-blue-500 text-white text-xs">You</Badge>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Baseline: {new Date(contestant.baselineScan.scanDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="text-lg font-bold text-red-600">
+                        {contestant.baselineScan.bodyFatPercent}%
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="text-lg font-semibold text-red-500">
+                        {contestant.user.targetBodyFatPercent ? `${contestant.user.targetBodyFatPercent}%` : '--'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="text-lg font-bold text-green-600">
+                        {contestant.baselineScan.leanMass} lbs
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="text-lg font-semibold text-green-500">
+                        {contestant.user.targetLeanMass ? `${contestant.user.targetLeanMass} lbs` : '--'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="flex flex-col items-center space-y-2">
+                        <div className="text-sm font-medium text-gray-900">
+                          {daysRemaining} days
+                        </div>
+                        <div className="w-24">
+                          <Progress 
+                            value={timeProgressPercent} 
+                            className="h-2"
+                          />
+                          <div className="text-xs text-gray-500 mt-1">
+                            {Math.round(timeProgressPercent)}% complete
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -152,29 +183,54 @@ function LeaderboardSkeleton() {
         <Skeleton className="h-8 w-32 mx-auto" />
       </div>
       
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <Card key={i}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center space-x-3">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-5 w-24" />
-                  <Skeleton className="h-4 w-32" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Skeleton className="h-16 rounded-lg" />
-                <Skeleton className="h-16 rounded-lg" />
-              </div>
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                {['Name', 'Body Fat %', 'Target BF %', 'Lean Mass (lbs)', 'Target LM (lbs)', 'Days Left'].map((header) => (
+                  <th key={header} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {[1, 2, 3].map((i) => (
+                <tr key={i}>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="ml-4 space-y-1">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <Skeleton className="h-6 w-12 mx-auto" />
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <Skeleton className="h-6 w-12 mx-auto" />
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <Skeleton className="h-6 w-16 mx-auto" />
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <Skeleton className="h-6 w-16 mx-auto" />
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <div className="flex flex-col items-center space-y-2">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-2 w-24" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
