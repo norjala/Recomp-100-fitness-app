@@ -51,6 +51,34 @@ export default function Leaderboard() {
   const daysElapsed = Math.max(0, Math.ceil((today.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24)));
   const timeProgressPercent = Math.min(100, Math.max(0, (daysElapsed / totalChallengeDays) * 100));
 
+  // Calculate estimated score based on target goals
+  const calculateEstimatedScore = (contestant: ContestantEntry) => {
+    if (!contestant.user.targetBodyFatPercent || !contestant.user.targetLeanMass) {
+      return '--';
+    }
+
+    // Calculate percentage changes from baseline to target
+    const currentBodyFat = contestant.baselineScan.bodyFatPercent;
+    const currentLeanMass = contestant.baselineScan.leanMass;
+    const targetBodyFat = contestant.user.targetBodyFatPercent;
+    const targetLeanMass = contestant.user.targetLeanMass;
+
+    // Body fat percentage change (negative means fat loss)
+    const bodyFatPercentChange = ((targetBodyFat - currentBodyFat) / currentBodyFat) * 100;
+    
+    // Lean mass percentage change (positive means muscle gain)
+    const leanMassPercentChange = ((targetLeanMass - currentLeanMass) / currentLeanMass) * 100;
+
+    // Calculate fat loss score (10 points per 1% body fat lost, max 50)
+    const fatLossScore = bodyFatPercentChange >= 0 ? 0 : Math.min(50, Math.abs(bodyFatPercentChange) * 10);
+    
+    // Calculate muscle gain score (20 points per 1% lean mass gained, max 50)
+    const muscleGainScore = leanMassPercentChange <= 0 ? 0 : Math.min(50, leanMassPercentChange * 20);
+
+    const totalScore = fatLossScore + muscleGainScore;
+    return Math.round(totalScore);
+  };
+
   return (
     <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow space-y-6">
       {/* Header */}
@@ -87,6 +115,9 @@ export default function Leaderboard() {
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Target LM (lbs)
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estimated Score
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Days Left
@@ -148,6 +179,14 @@ export default function Leaderboard() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="text-lg font-bold text-purple-600">
+                        {calculateEstimatedScore(contestant)}
+                        {calculateEstimatedScore(contestant) !== '--' && (
+                          <div className="text-xs text-gray-500 mt-1">pts</div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex flex-col items-center space-y-2">
                         <div className="text-sm font-medium text-gray-900">
                           {daysRemaining} days
@@ -188,7 +227,7 @@ function LeaderboardSkeleton() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {['Name', 'Body Fat %', 'Target BF %', 'Lean Mass (lbs)', 'Target LM (lbs)', 'Days Left'].map((header) => (
+                {['Name', 'Body Fat %', 'Target BF %', 'Lean Mass (lbs)', 'Target LM (lbs)', 'Estimated Score', 'Days Left'].map((header) => (
                   <th key={header} className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {header}
                   </th>
@@ -218,6 +257,9 @@ function LeaderboardSkeleton() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <Skeleton className="h-6 w-16 mx-auto" />
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <Skeleton className="h-6 w-12 mx-auto" />
                   </td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex flex-col items-center space-y-2">
