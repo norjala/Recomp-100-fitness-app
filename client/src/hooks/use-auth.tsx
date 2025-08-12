@@ -4,7 +4,7 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { User, RegisterUser, LoginUser, ForgotPassword, ResetPassword } from "@shared/schema";
+import { User, RegisterUser, LoginUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -14,11 +14,7 @@ type AuthContextType = {
   error: Error | null;
   loginMutation: UseMutationResult<User, Error, LoginUser>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<{ message: string; requiresVerification: boolean }, Error, RegisterUser>;
-  forgotPasswordMutation: UseMutationResult<{ message: string }, Error, ForgotPassword>;
-  resetPasswordMutation: UseMutationResult<{ message: string }, Error, ResetPassword>;
-  verifyEmailMutation: UseMutationResult<{ message: string }, Error, { token: string }>;
-  resendVerificationMutation: UseMutationResult<{ message: string }, Error, { email: string }>;
+  registerMutation: UseMutationResult<{ message: string; user: User }, Error, RegisterUser>;
 };
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -64,7 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/register", credentials);
       return await res.json();
     },
-    onSuccess: (response: { message: string; requiresVerification: boolean }) => {
+    onSuccess: (response: { message: string; user: User }) => {
+      queryClient.setQueryData(["/api/user"], response.user);
       toast({
         title: "Registration successful",
         description: response.message,
@@ -100,86 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const forgotPasswordMutation = useMutation({
-    mutationFn: async (data: ForgotPassword) => {
-      const res = await apiRequest("POST", "/api/forgot-password", data);
-      return await res.json();
-    },
-    onSuccess: (response: { message: string }) => {
-      toast({
-        title: "Password reset sent",
-        description: response.message,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Password reset failed",
-        description: error.message || "Failed to send password reset email",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const resetPasswordMutation = useMutation({
-    mutationFn: async (data: ResetPassword) => {
-      const res = await apiRequest("POST", "/api/reset-password", data);
-      return await res.json();
-    },
-    onSuccess: (response: { message: string }) => {
-      toast({
-        title: "Password reset successful",
-        description: response.message,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Password reset failed",
-        description: error.message || "Failed to reset password",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const verifyEmailMutation = useMutation({
-    mutationFn: async (data: { token: string }) => {
-      const res = await apiRequest("POST", "/api/verify-email", data);
-      return await res.json();
-    },
-    onSuccess: (response: { message: string }) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      toast({
-        title: "Email verified",
-        description: response.message,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Email verification failed",
-        description: error.message || "Failed to verify email",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const resendVerificationMutation = useMutation({
-    mutationFn: async (data: { email: string }) => {
-      const res = await apiRequest("POST", "/api/resend-verification", data);
-      return await res.json();
-    },
-    onSuccess: (response: { message: string }) => {
-      toast({
-        title: "Verification email sent",
-        description: response.message,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to send verification email",
-        description: error.message || "Failed to resend verification email",
-        variant: "destructive",
-      });
-    },
-  });
+  // Email-related mutations removed - username/password only
 
   return (
     <AuthContext.Provider
@@ -190,10 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginMutation,
         logoutMutation,
         registerMutation,
-        forgotPasswordMutation,
-        resetPasswordMutation,
-        verifyEmailMutation,
-        resendVerificationMutation,
       }}
     >
       {children}

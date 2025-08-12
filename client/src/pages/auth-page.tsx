@@ -10,7 +10,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { registerUserSchema, loginUserSchema, type RegisterUser, type LoginUser } from "@shared/schema";
-import { Loader2, Mail, Lock, User } from "lucide-react";
+import { Lock, User, Loader2 } from "lucide-react";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
@@ -19,7 +19,7 @@ export default function AuthPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user && user.isEmailVerified) {
+    if (user) {
       setLocation("/");
     }
   }, [user, setLocation]);
@@ -27,7 +27,7 @@ export default function AuthPage() {
   const loginForm = useForm<LoginUser>({
     resolver: zodResolver(loginUserSchema),
     defaultValues: {
-      identifier: "",
+      username: "",
       password: "",
     },
   });
@@ -35,26 +35,26 @@ export default function AuthPage() {
   const registerForm = useForm<RegisterUser>({
     resolver: zodResolver(registerUserSchema),
     defaultValues: {
-      identifier: "",
+      username: "",
       password: "",
     },
   });
 
   const onLogin = async (data: LoginUser) => {
     const result = await loginMutation.mutateAsync(data);
-    if (result && result.isEmailVerified) {
+    if (result) {
       setLocation("/");
     }
   };
 
   const onRegister = async (data: RegisterUser) => {
     const result = await registerMutation.mutateAsync(data);
-    if (result.requiresVerification) {
-      setActiveTab("verification");
+    if (result) {
+      setLocation("/");
     }
   };
 
-  if (user && user.isEmailVerified) {
+  if (user) {
     return null; // Will redirect
   }
 
@@ -89,15 +89,15 @@ export default function AuthPage() {
                     <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                       <FormField
                         control={loginForm.control}
-                        name="identifier"
+                        name="username"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Username or Email</FormLabel>
+                            <FormLabel>Username</FormLabel>
                             <FormControl>
                               <div className="relative">
                                 <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                  placeholder="username or your@email.com"
+                                  placeholder="Enter your username"
                                   className="pl-10"
                                   {...field}
                                 />
@@ -157,15 +157,15 @@ export default function AuthPage() {
                     <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
                       <FormField
                         control={registerForm.control}
-                        name="identifier"
+                        name="username"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Username or Email</FormLabel>
+                            <FormLabel>Username</FormLabel>
                             <FormControl>
                               <div className="relative">
                                 <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                  placeholder="username or your@email.com"
+                                  placeholder="Choose a username"
                                   className="pl-10"
                                   {...field}
                                 />
@@ -212,24 +212,7 @@ export default function AuthPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="verification">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Check Your Email</CardTitle>
-                  <CardDescription>
-                    We've sent you a verification link. Please check your email and click the link to activate your account.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center">
-                    <Mail className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-sm text-muted-foreground">
-                      Didn't receive the email? Check your spam folder or try registering again.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+            {/* Email verification tab removed - username/password only */}
           </Tabs>
         </div>
       </div>

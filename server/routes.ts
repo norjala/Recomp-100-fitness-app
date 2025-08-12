@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { requireAuth, requireVerifiedEmail } from "./auth";
+import { requireAuth } from "./auth";
 import {
   ObjectStorageService,
   ObjectNotFoundError,
@@ -16,7 +16,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
   // User registration for competition
-  app.post('/api/users/register', requireVerifiedEmail, async (req: any, res) => {
+  app.post('/api/users/register', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
       
@@ -32,8 +32,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update with competition data
       const competitionUser = await storage.createCompetitionUser({
         id: userId,
-        email: req.user.email, // Add required email field
-        password: req.user.password, // Add required password field
         name: registrationData.name,
         gender: registrationData.gender,
         height: registrationData.height,
@@ -162,7 +160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new DEXA scan
-  app.post('/api/scans', requireVerifiedEmail, async (req: any, res) => {
+  app.post('/api/scans', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const scanData = insertDexaScanSchema.parse({

@@ -5,8 +5,7 @@ import type { Express, RequestHandler } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
-import { sendVerificationEmail, sendPasswordResetEmail } from "./email";
-import type { User, RegisterUser, LoginUser, ForgotPassword, ResetPassword } from "@shared/schema";
+import type { User, RegisterUser, LoginUser } from "@shared/schema";
 
 const scryptAsync = promisify(scrypt);
 
@@ -63,60 +62,26 @@ export function setupAuth(app: Express) {
   app.post("/api/register", async (req, res) => {
     try {
       const userData: RegisterUser = req.body;
-      const isEmail = userData.identifier.includes('@');
       
-      // Check if user already exists
-      const existingUser = await storage.getUserByIdentifier(userData.identifier);
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
         return res.status(400).json({ 
-          message: `${isEmail ? 'Email' : 'Username'} already exists` 
+          message: "Username already exists" 
         });
       }
 
-      // Hash password and create verification token (only needed for email accounts)
+      // Hash password and create user
       const hashedPassword = await hashPassword(userData.password);
-      const verificationToken = isEmail ? generateToken() : undefined;
-
-      // Create user data
-      const userCreateData = {
+      const newUser = await storage.createUser({
+        username: userData.username,
         password: hashedPassword,
-        ...(isEmail ? { 
-          email: userData.identifier, 
-          emailVerificationToken: verificationToken 
-        } : { 
-          username: userData.identifier,
-          isEmailVerified: true // Username accounts don't need email verification
-        })
-      };
+      });
 
-      const user = await storage.createUser(userCreateData);
-
-      // Send verification email for email accounts (with development bypass)
-      if (isEmail && user.email) {
-        const emailSent = await sendVerificationEmail(user.email, verificationToken!);
-        if (!emailSent) {
-          console.error("Failed to send verification email");
-          // In development, auto-verify email if SendGrid fails
-          if (process.env.NODE_ENV === "development") {
-            await storage.verifyUserEmail(user.id);
-            return res.status(201).json({ 
-              message: "Account created and automatically verified (development mode). You can now log in.",
-              requiresVerification: false 
-            });
-          }
-        }
-
-        res.status(201).json({ 
-          message: "Account created successfully. Please check your email to verify your account.",
-          requiresVerification: true 
-        });
-      } else {
-        // Username accounts are ready to use immediately
-        res.status(201).json({ 
-          message: "Account created successfully. You can now log in.",
-          requiresVerification: false 
-        });
-      }
+      return res.status(201).json({ 
+        message: "Account created successfully", 
+        user: newUser 
+      });
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -125,19 +90,11 @@ export function setupAuth(app: Express) {
 
   app.post("/api/login", async (req, res) => {
     try {
-      const { identifier, password }: LoginUser = req.body;
+      const { username, password }: LoginUser = req.body;
 
-      const user = await storage.getUserByIdentifier(identifier);
+      const user = await storage.getUserByUsername(username);
       if (!user || !(await comparePasswords(password, user.password))) {
-        return res.status(401).json({ message: "Invalid username/email or password" });
-      }
-
-      // Only check email verification for email accounts (users with email addresses)
-      if (user.email && !user.isEmailVerified) {
-        return res.status(401).json({ 
-          message: "Please verify your email address before logging in",
-          requiresVerification: true 
-        });
+        return res.status(401).json({ message: "Invalid username or password" });
       }
 
       // Store user in session (excluding password)
@@ -180,125 +137,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/verify-email", async (req, res) => {
-    try {
-      const { token } = req.body;
-      
-      // Development bypass for testing
-      if (process.env.NODE_ENV === "development" && token === "dev-bypass") {
-        const sessionUser = (req.session as any)?.user;
-        if (sessionUser && sessionUser.email) {
-          await storage.verifyUserEmail(sessionUser.id);
-          (req.session as any).user = { ...sessionUser, isEmailVerified: true };
-          return res.json({ message: "Email verified successfully (dev bypass)" });
-        }
-        
-        // Also allow specific test emails
-        const testEmails = ["test@example.com", "nrj.prolific@gmail.com"];
-        for (const email of testEmails) {
-          const testUser = await storage.getUserByEmail(email);
-          if (testUser) {
-            await storage.verifyUserEmail(testUser.id);
-            (req.session as any).user = { ...testUser, isEmailVerified: true };
-            return res.json({ message: "Email verified successfully (dev bypass)" });
-          }
-        }
-      }
-      
-      const user = await storage.getUserByVerificationToken(token);
-      if (!user) {
-        return res.status(400).json({ message: "Invalid or expired verification token" });
-      }
-
-      await storage.verifyUserEmail(user.id);
-      res.json({ message: "Email verified successfully" });
-    } catch (error) {
-      console.error("Email verification error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/forgot-password", async (req, res) => {
-    try {
-      const { identifier }: ForgotPassword = req.body;
-      const isEmail = identifier.includes('@');
-
-      if (!isEmail) {
-        return res.status(400).json({ 
-          message: "Password reset is only available for email accounts. Please contact support if you need help with your username account." 
-        });
-      }
-      
-      const user = await storage.getUserByEmail(identifier);
-      if (!user) {
-        // Don't reveal whether email exists
-        return res.json({ message: "If that email exists, we've sent a password reset link" });
-      }
-
-      const resetToken = generateToken();
-      const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-      await storage.setPasswordResetToken(user.id, resetToken, resetExpires);
-      
-      const emailSent = await sendPasswordResetEmail(user.email!, resetToken);
-      if (!emailSent) {
-        console.error("Failed to send password reset email");
-      }
-
-      res.json({ message: "If that email exists, we've sent a password reset link" });
-    } catch (error) {
-      console.error("Forgot password error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/reset-password", async (req, res) => {
-    try {
-      const { token, password }: ResetPassword = req.body;
-      
-      const user = await storage.getUserByResetToken(token);
-      if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
-        return res.status(400).json({ message: "Invalid or expired reset token" });
-      }
-
-      const hashedPassword = await hashPassword(password);
-      await storage.resetPassword(user.id, hashedPassword);
-
-      res.json({ message: "Password reset successfully" });
-    } catch (error) {
-      console.error("Reset password error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/resend-verification", async (req, res) => {
-    try {
-      const { email } = req.body;
-      
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      if (user.isEmailVerified) {
-        return res.status(400).json({ message: "Email is already verified" });
-      }
-
-      const verificationToken = generateToken();
-      await storage.updateVerificationToken(user.id, verificationToken);
-      
-      const emailSent = await sendVerificationEmail(user.email!, verificationToken);
-      if (!emailSent) {
-        console.error("Failed to send verification email");
-        return res.status(500).json({ message: "Failed to send verification email" });
-      }
-
-      res.json({ message: "Verification email sent" });
-    } catch (error) {
-      console.error("Resend verification error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+  // Email-related endpoints removed - username/password only
 }
 
 export const requireAuth: RequestHandler = (req: any, res, next) => {
@@ -310,17 +149,4 @@ export const requireAuth: RequestHandler = (req: any, res, next) => {
   next();
 };
 
-export const requireVerifiedEmail: RequestHandler = (req: any, res, next) => {
-  const user = (req.session as any)?.user;
-  if (!user) {
-    return res.status(401).json({ message: "Authentication required" });
-  }
-  if (!user.isEmailVerified) {
-    return res.status(401).json({ 
-      message: "Email verification required",
-      requiresVerification: true 
-    });
-  }
-  req.user = user;
-  next();
-};
+// No longer need requireVerifiedEmail since we don't use email verification

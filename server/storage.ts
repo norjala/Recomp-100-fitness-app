@@ -17,18 +17,10 @@ import { db } from "./db";
 import { eq, desc, asc, and, isNull, isNotNull, ne } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations for email/password auth
+  // User operations for username/password auth
   getUser(id: string): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  getUserByIdentifier(identifier: string): Promise<User | undefined>; // Email or username
-  getUserByVerificationToken(token: string): Promise<User | undefined>;
-  getUserByResetToken(token: string): Promise<User | undefined>;
-  createUser(userData: { username?: string; email?: string; password: string; emailVerificationToken?: string }): Promise<User>;
-  verifyUserEmail(id: string): Promise<void>;
-  updateVerificationToken(id: string, token: string): Promise<void>;
-  setPasswordResetToken(id: string, token: string, expires: Date): Promise<void>;
-  resetPassword(id: string, hashedPassword: string): Promise<void>;
+  createUser(userData: { username: string; password: string }): Promise<User>;
   updateUser(id: string, updates: Partial<InsertUser>): Promise<User>;
   
   // Competition user operations
@@ -56,29 +48,14 @@ export interface IStorage {
   // Admin operations
   getAllUsers(): Promise<User[]>;
   deleteUser(id: string): Promise<void>;
-  adminCreateUser(userData: { username?: string; email?: string; password: string; name?: string }): Promise<User>;
+  adminCreateUser(userData: { username: string; password: string; name?: string }): Promise<User>;
   adminUpdateUser(id: string, updates: Partial<User>): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations for email/password auth
+  // User operations for username/password auth
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
-  }
-
-  async getUserByVerificationToken(token: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.emailVerificationToken, token));
-    return user;
-  }
-
-  async getUserByResetToken(token: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.passwordResetToken, token));
     return user;
   }
 
@@ -87,65 +64,12 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getUserByIdentifier(identifier: string): Promise<User | undefined> {
-    // Check if identifier is email format
-    const isEmail = identifier.includes('@');
-    
-    if (isEmail) {
-      return this.getUserByEmail(identifier);
-    } else {
-      return this.getUserByUsername(identifier);
-    }
-  }
-
-  async createUser(userData: { username?: string; email?: string; password: string; emailVerificationToken?: string }): Promise<User> {
+  async createUser(userData: { username: string; password: string }): Promise<User> {
     const [user] = await db.insert(users).values(userData).returning();
     return user;
   }
 
-  async verifyUserEmail(id: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ 
-        isEmailVerified: true, 
-        emailVerificationToken: null,
-        updatedAt: new Date() 
-      })
-      .where(eq(users.id, id));
-  }
-
-  async updateVerificationToken(id: string, token: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ 
-        emailVerificationToken: token,
-        updatedAt: new Date() 
-      })
-      .where(eq(users.id, id));
-  }
-
-  async setPasswordResetToken(id: string, token: string, expires: Date): Promise<void> {
-    await db
-      .update(users)
-      .set({ 
-        passwordResetToken: token,
-        passwordResetExpires: expires,
-        updatedAt: new Date() 
-      })
-      .where(eq(users.id, id));
-  }
-
-  async resetPassword(id: string, hashedPassword: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ 
-        password: hashedPassword,
-        passwordResetToken: null,
-        passwordResetExpires: null,
-        updatedAt: new Date() 
-      })
-      .where(eq(users.id, id));
-  }
+  // Password reset methods removed - username/password only
 
   // Method to update user profile
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User> {
@@ -489,13 +413,11 @@ export class DatabaseStorage implements IStorage {
     await db.delete(users).where(eq(users.id, id));
   }
 
-  async adminCreateUser(userData: { username?: string; email?: string; password: string; name?: string }): Promise<User> {
+  async adminCreateUser(userData: { username: string; password: string; name?: string }): Promise<User> {
     const [user] = await db.insert(users).values({
-      username: userData.username || null,
-      email: userData.email || null,
+      username: userData.username,
       password: userData.password,
       name: userData.name || null,
-      isEmailVerified: userData.email ? false : true, // Username accounts are auto-verified
       isActive: true,
     }).returning();
     

@@ -24,16 +24,11 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table for username/email and password authentication
+// User storage table for username and password authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: varchar("username").unique(), // Optional unique username
-  email: varchar("email").unique(), // Optional unique email
+  username: varchar("username").unique().notNull(), // Required unique username
   password: varchar("password").notNull(),
-  isEmailVerified: boolean("is_email_verified").default(false).notNull(),
-  emailVerificationToken: varchar("email_verification_token"),
-  passwordResetToken: varchar("password_reset_token"),
-  passwordResetExpires: timestamp("password_reset_expires"),
   // Competition specific fields - optional until profile is completed
   name: text("name"),
   firstName: text("first_name"),
@@ -124,42 +119,24 @@ export const insertScoringDataSchema = createInsertSchema(scoringData).omit({
 
 // Auth schemas
 export const registerUserSchema = z.object({
-  identifier: z.string().min(1, "Username or email is required"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-}).refine((data) => {
-  // Check if identifier is email format
-  const isEmail = z.string().email().safeParse(data.identifier).success;
-  return isEmail || data.identifier.length >= 3; // Username must be at least 3 chars
-}, {
-  message: "Must be a valid email or username (minimum 3 characters)",
-  path: ["identifier"]
 });
 
 export const loginUserSchema = z.object({
-  identifier: z.string().min(1, "Username or email is required"),
+  username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
 });
 
-export const forgotPasswordSchema = z.object({
-  identifier: z.string().min(1, "Username or email is required"),
-});
-
-export const resetPasswordSchema = z.object({
-  token: z.string(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
-
-// Types
+// Type exports
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type RegisterUser = z.infer<typeof registerUserSchema>;
-export type LoginUser = z.infer<typeof loginUserSchema>;
-export type ForgotPassword = z.infer<typeof forgotPasswordSchema>;
-export type ResetPassword = z.infer<typeof resetPasswordSchema>;
 export type DexaScan = typeof dexaScans.$inferSelect;
 export type InsertDexaScan = z.infer<typeof insertDexaScanSchema>;
 export type ScoringData = typeof scoringData.$inferSelect;
 export type InsertScoringData = z.infer<typeof insertScoringDataSchema>;
+export type RegisterUser = z.infer<typeof registerUserSchema>;
+export type LoginUser = z.infer<typeof loginUserSchema>;
 
 // Extended types for API responses
 export type UserWithStats = User & {
