@@ -35,8 +35,10 @@ export default function Leaderboard() {
   }
 
   const displayLeaderboard = leaderboard || [];
+  const displayContestants = contestants || [];
 
-  if (!displayLeaderboard || displayLeaderboard.length === 0) {
+  // Show "building leaderboard" only if there are no contestants at all
+  if (displayContestants.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
@@ -75,8 +77,6 @@ export default function Leaderboard() {
         return "bg-gray-100 text-gray-600";
     }
   };
-
-  const displayContestants = contestants || [];
 
   return (
     <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow space-y-6">
@@ -246,10 +246,13 @@ export default function Leaderboard() {
                         <Avatar className="h-10 w-10">
                           <AvatarImage 
                             src={undefined} 
-                            alt={entry.user.name || entry.user.email}
+                            alt={entry.user.name || entry.user.email || entry.user.username || 'User'}
                           />
                           <AvatarFallback>
-                            {entry.user.name ? entry.user.name.split(' ').map(n => n[0]).join('').toUpperCase() : entry.user.email.charAt(0).toUpperCase()}
+                            {entry.user.name 
+                              ? entry.user.name.split(' ').map(n => n[0]).join('').toUpperCase() 
+                              : (entry.user.email?.charAt(0).toUpperCase() || entry.user.username?.charAt(0).toUpperCase() || 'U')
+                            }
                           </AvatarFallback>
                         </Avatar>
                         <div className="ml-3 md:ml-4">
