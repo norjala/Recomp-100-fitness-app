@@ -37,6 +37,7 @@ export default function Leaderboard() {
   console.log('Contestants data:', contestants);
   console.log('Contestants loading:', contestantsLoading);
   console.log('Contestants error:', contestantsError);
+  console.log('Display contestants length:', displayContestants.length);
 
   // Challenge countdown logic - same as dashboard
   const challengeStartDate = new Date('2025-08-04');
