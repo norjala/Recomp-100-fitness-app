@@ -85,7 +85,7 @@ export default function Leaderboard() {
       <div className="text-center">
         <div className="flex items-center justify-center mb-4">
           <Trophy className="h-8 w-8 text-yellow-500 mr-3" />
-          <h1 className="text-3xl font-bold text-gray-900">100-Day Recomp Leaderboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">100-Day Recomp Leaderboard v2</h1>
         </div>
         <p className="text-gray-600 mb-2">
           {displayContestants.length} contestant{displayContestants.length !== 1 ? 's' : ''} competing
@@ -97,10 +97,10 @@ export default function Leaderboard() {
 
       {/* Contestants Table */}
       <Card className="overflow-hidden">
-        <div className="bg-purple-100 border-l-4 border-purple-500 p-4 mb-4">
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4">
           <div className="flex items-center">
-            <div className="text-purple-700 font-medium text-sm">
-              ➤ Scroll right to see your Estimated Score based on target goals
+            <div className="text-yellow-700 font-bold text-lg">
+              🏆 NEW: Scroll right to see ESTIMATED SCORE column! (Based on your target goals)
             </div>
           </div>
         </div>
