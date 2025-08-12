@@ -1,28 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trophy, Medal, Award } from "lucide-react";
+import { Trophy, Target, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import type { LeaderboardEntry, ContestantEntry } from "@shared/schema";
+import type { ContestantEntry } from "@shared/schema";
 
 export default function Leaderboard() {
   const { user: currentUser } = useAuth();
-  
-  const { data: leaderboard, isLoading } = useQuery<LeaderboardEntry[]>({
-    queryKey: ["/api/leaderboard"],
-    queryFn: async () => {
-      const response = await fetch("/api/leaderboard");
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.json();
-    },
-  });
 
-  const { data: contestants, isLoading: contestantsLoading, error: contestantsError } = useQuery<ContestantEntry[]>({
+  const { data: contestants, isLoading: contestantsLoading } = useQuery<ContestantEntry[]>({
     queryKey: ["/api/contestants"],
     queryFn: async () => {
       const response = await fetch("/api/contestants");
@@ -32,396 +20,161 @@ export default function Leaderboard() {
       return response.json();
     },
   });
-  
-  // Debug logging
-  console.log('Contestants data:', contestants);
-  console.log('Contestants loading:', contestantsLoading);
-  console.log('Contestants error:', contestantsError);
-  console.log('Display contestants length:', displayContestants.length);
 
-  // Challenge countdown logic - same as dashboard
-  const challengeStartDate = new Date('2025-08-04');
+  // Challenge countdown logic
   const challengeEndDate = new Date('2025-11-14');
   const today = new Date();
   const daysRemaining = Math.max(0, Math.ceil((challengeEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
-  
-  // Calculate progress percentage (how much time has elapsed)
-  const totalChallengeDays = Math.ceil((challengeEndDate.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24));
-  const daysElapsed = Math.max(0, Math.ceil((today.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24)));
-  const timeProgressPercent = Math.min(100, Math.max(0, (daysElapsed / totalChallengeDays) * 100));
 
-  if (isLoading || contestantsLoading) {
+  if (contestantsLoading) {
     return <LeaderboardSkeleton />;
   }
 
-  const displayLeaderboard = leaderboard || [];
   const displayContestants = contestants || [];
 
-  // Show "building leaderboard" only if there are no contestants at all
   if (displayContestants.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
           <CardContent className="p-6 text-center">
             <Trophy className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Building the leaderboard...</h3>
-            <p className="text-gray-600">Upload more scans to see rankings!</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No contestants yet</h3>
+            <p className="text-gray-600">Upload your first DEXA scan to join the competition!</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  const getRankIcon = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return <Trophy className="h-5 w-5 text-yellow-500" />;
-      case 2:
-        return <Medal className="h-5 w-5 text-gray-400" />;
-      case 3:
-        return <Award className="h-5 w-5 text-orange-400" />;
-      default:
-        return <span className="text-sm font-bold text-gray-600">#{rank}</span>;
-    }
-  };
 
-  const getRankBadgeColor = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return "bg-yellow-500 text-white";
-      case 2:
-        return "bg-gray-400 text-white";
-      case 3:
-        return "bg-orange-400 text-white";
-      default:
-        return "bg-gray-100 text-gray-600";
-    }
-  };
 
   return (
     <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow space-y-6">
-      {/* Contestants Table */}
-      <Card className="overflow-hidden card-mobile">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <Trophy className="h-5 w-5 mr-2 text-warning" />
-            Contestants
-          </h3>
+      {/* Header */}
+      <div className="text-center">
+        <div className="flex items-center justify-center mb-4">
+          <Trophy className="h-8 w-8 text-yellow-500 mr-3" />
+          <h1 className="text-3xl font-bold text-gray-900">100-Day Recomp Leaderboard</h1>
         </div>
-        
-        <div className="overflow-x-auto table-scroll">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
-                  Name
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Baseline Date
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Body Fat %
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider desktop-only">
-                  Target Body Fat %
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Lean Mass (lbs)
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider desktop-only">
-                  Target Lean Mass (lbs)
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Time Left
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {displayContestants.map((contestant) => {
-                const displayName = contestant.user.name || contestant.user.username || 'Anonymous';
-                
-                return (
-                  <tr key={contestant.user.id} className="hover:bg-gray-50">
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {displayName}
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {new Date(contestant.baselineScan.scanDate).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {contestant.baselineScan.bodyFatPercent.toFixed(1)}%
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap desktop-only">
-                      <div className="text-sm text-gray-900">
-                        {contestant.user.targetBodyFatPercent 
-                          ? `${contestant.user.targetBodyFatPercent.toFixed(1)}%` 
-                          : '-'
-                        }
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {contestant.baselineScan.leanMass.toFixed(1)}
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap desktop-only">
-                      <div className="text-sm text-gray-900">
-                        {contestant.user.targetLeanMass 
-                          ? `${contestant.user.targetLeanMass.toFixed(1)}` 
-                          : '-'
-                        }
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 mb-1">
-                        {daysRemaining > 0 ? `${daysRemaining} days left` : 'Complete!'}
-                      </div>
-                      <div className="flex items-center">
-                        <Progress 
-                          value={timeProgressPercent} 
-                          className="w-16 h-2"
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+        <p className="text-gray-600 mb-2">
+          {displayContestants.length} contestant{displayContestants.length !== 1 ? 's' : ''} competing
+        </p>
+        <Badge className="bg-blue-100 text-blue-800 text-lg px-4 py-2">
+          {daysRemaining} days remaining
+        </Badge>
+      </div>
 
-      {/* Leaderboard Table */}
-      <Card className="overflow-hidden card-mobile">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Trophy className="h-5 w-5 mr-2 text-warning" />
-              Leaderboard
-            </h3>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-primary">
-                  {daysRemaining > 0 ? `${daysRemaining} days remaining` : 'Challenge complete!'}
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-500">Last updated:</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto table-scroll">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rank
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
-                  Contestant
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Score
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider desktop-only">
-                  Fat Loss
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider desktop-only">
-                  Muscle Gain
-                </th>
-                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Progress
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {displayLeaderboard.map((entry) => {
-                const isCurrentUser = currentUser?.id === entry.user.id;
-                
-                return (
-                  <tr 
-                    key={entry.user.id} 
-                    className={`hover:bg-gray-50 ${isCurrentUser ? 'bg-blue-50' : ''}`}
-                  >
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Badge className={`${getRankBadgeColor(entry.rank)} w-8 h-8 flex items-center justify-center rounded-full`}>
-                          {entry.rank <= 3 ? getRankIcon(entry.rank) : entry.rank}
-                        </Badge>
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage 
-                            src={undefined} 
-                            alt={entry.user.name || entry.user.email || entry.user.username || 'User'}
-                          />
-                          <AvatarFallback>
-                            {entry.user.name 
-                              ? entry.user.name.split(' ').map(n => n[0]).join('').toUpperCase() 
-                              : (entry.user.email?.charAt(0).toUpperCase() || entry.user.username?.charAt(0).toUpperCase() || 'U')
-                            }
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="ml-3 md:ml-4">
-                          <div className="text-sm font-medium text-gray-900 flex items-center">
-                            <span className="truncate max-w-[120px] md:max-w-none">{entry.displayName}</span>
-                            {isCurrentUser && (
-                              <Badge className="ml-1 md:ml-2 bg-primary text-white text-xs">You</Badge>
-                            )}
-                          </div>
-                          <div className="text-xs md:text-sm text-gray-500 capitalize">
-                            {entry.user.gender}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-gray-900">
-                        {entry.totalScore.toFixed(1)}
-                      </div>
-                      <div className="md:hidden text-xs text-gray-500">
-                        BF: {entry.bodyFatChange.toFixed(1)}% | LM: +{entry.leanMassChange.toFixed(1)}%
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap desktop-only">
-                      <div className="text-sm text-gray-900">
-                        {entry.fatLossScore.toFixed(1)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {entry.bodyFatChange.toFixed(1)}% BF
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap desktop-only">
-                      <div className="text-sm text-gray-900">
-                        {entry.muscleGainScore.toFixed(1)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        +{entry.leanMassChange.toFixed(1)}% LM
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Progress 
-                          value={entry.progressPercent} 
-                          className="w-12 md:w-16 h-2 mr-1 md:mr-2"
-                        />
-                        <span className="text-xs text-gray-500">
-                          {Math.round(entry.progressPercent)}%
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {/* Scoring Transparency */}
-      <Card className="mt-8">
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Trophy className="h-5 w-5 mr-2 text-primary" />
-            Scoring Formula Transparency
-          </h3>
+      {/* Contestants Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {displayContestants.map((contestant) => {
+          const displayName = contestant.user.name || contestant.user.username || 'Anonymous';
+          const isCurrentUser = currentUser?.id === contestant.user.id;
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h4 className="font-medium text-gray-900">Fat Loss Score (FLS)</h4>
-              <div className="bg-gray-50 p-4 rounded-lg font-mono text-sm">
-                FLS = ln(BF%_start / BF%_end) × 100 × Leanness_Multiplier
-              </div>
-              
-              <div className="space-y-2">
-                <h5 className="font-medium text-gray-700">Leanness Multipliers</h5>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+          return (
+            <Card key={contestant.user.id} className={`hover:shadow-lg transition-shadow ${isCurrentUser ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center space-x-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage 
+                      src={undefined} 
+                      alt={displayName}
+                    />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                      {displayName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <div>
-                    <strong>Men:</strong>
-                    <ul className="mt-1 space-y-1 text-gray-600">
-                      <li>≥25% BF: 1.0x</li>
-                      <li>21-25%: 1.1x</li>
-                      <li>18-20.9%: 1.2x</li>
-                      <li>15-17.9%: 1.3x</li>
-                      <li>&lt;15%: 1.4x</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <strong>Women:</strong>
-                    <ul className="mt-1 space-y-1 text-gray-600">
-                      <li>≥30% BF: 1.0x</li>
-                      <li>26-30%: 1.1x</li>
-                      <li>23-25.9%: 1.2x</li>
-                      <li>20-22.9%: 1.3x</li>
-                      <li>&lt;20%: 1.4x</li>
-                    </ul>
+                    <div className="flex items-center space-x-2">
+                      <CardTitle className="text-lg">{displayName}</CardTitle>
+                      {isCurrentUser && (
+                        <Badge className="bg-blue-500 text-white text-xs">You</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      Baseline: {new Date(contestant.baselineScan.scanDate).toLocaleDateString()}
+                    </p>
                   </div>
                 </div>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <h4 className="font-medium text-gray-900">Muscle Gain Score (MGS)</h4>
-              <div className="bg-gray-50 p-4 rounded-lg font-mono text-sm">
-                MGS = (Lean_Mass_%_Change) × 100 × 17 × Gender_Multiplier
-              </div>
+              </CardHeader>
               
-              <div className="space-y-2">
-                <h5 className="font-medium text-gray-700">Gender Multipliers</h5>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li><strong>Men:</strong> 1.0x</li>
-                  <li><strong>Women:</strong> 2.0x</li>
-                </ul>
-              </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> Both scores are normalized across all contestants using min-max normalization (1-100 points). Total Score = FLS + MGS (max 200 points).
-                </p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              <CardContent className="space-y-4">
+                {/* Current Stats */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-red-50 rounded-lg">
+                    <div className="text-2xl font-bold text-red-600">
+                      {contestant.baselineScan.bodyFatPercent}%
+                    </div>
+                    <div className="text-xs text-gray-500">Current Body Fat</div>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">
+                      {contestant.baselineScan.leanMass}
+                    </div>
+                    <div className="text-xs text-gray-500">Lean Mass (lbs)</div>
+                  </div>
+                </div>
+
+                {/* Target Goals */}
+                <div className="flex items-center space-x-2 text-sm">
+                  <Target className="h-4 w-4 text-blue-500" />
+                  <span className="text-gray-600">Goals:</span>
+                  <span className="font-medium">
+                    {contestant.user.targetBodyFatPercent ? `${contestant.user.targetBodyFatPercent}%` : '--'} BF,
+                  </span>
+                  <span className="font-medium">
+                    {contestant.user.targetLeanMass ? `${contestant.user.targetLeanMass}` : '--'} lbs LM
+                  </span>
+                </div>
+
+                {/* RMR if available */}
+                {contestant.baselineScan.restingMetabolicRate && (
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Zap className="h-4 w-4 text-orange-500" />
+                    <span className="text-gray-600">RMR:</span>
+                    <span className="font-medium">{contestant.baselineScan.restingMetabolicRate} cal/day</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 function LeaderboardSkeleton() {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <Card>
-        <div className="px-6 py-4 border-b border-gray-200">
-          <Skeleton className="h-6 w-32" />
-        </div>
-        <div className="p-6 space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex items-center space-x-4">
-              <Skeleton className="h-10 w-10 rounded-full" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-3 w-20" />
+    <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 space-y-6">
+      <div className="text-center">
+        <Skeleton className="h-10 w-80 mx-auto mb-4" />
+        <Skeleton className="h-4 w-40 mx-auto mb-2" />
+        <Skeleton className="h-8 w-32 mx-auto" />
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <Card key={i}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center space-x-3">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
               </div>
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-4 w-16" />
-            </div>
-          ))}
-        </div>
-      </Card>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Skeleton className="h-16 rounded-lg" />
+                <Skeleton className="h-16 rounded-lg" />
+              </div>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
