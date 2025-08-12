@@ -60,11 +60,124 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+
+  /* Mobile viewport fix for iOS */
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent input zoom on iOS */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  @media (min-width: 768px) {
+    input[type="text"],
+    input[type="password"], 
+    input[type="email"],
+    select,
+    textarea {
+      font-size: 14px !important;
+    }
+  }
 }
 
 /* Custom styles for fitness app */
 .gradient-bg {
   background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
+}
+
+/* Mobile optimizations */
+.mobile-padding {
+  @apply px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8;
+}
+
+.prevent-overflow {
+  @apply overflow-x-hidden;
+}
+
+/* Mobile-first responsive containers */
+.mobile-container {
+  @apply w-full max-w-none sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-6xl mx-auto;
+}
+
+/* Touch-friendly buttons */
+.mobile-button {
+  @apply min-h-[44px] min-w-[44px] text-base;
+}
+
+/* Mobile-friendly form inputs */
+.mobile-input {
+  @apply text-base sm:text-sm min-h-[44px] px-4 py-3;
+}
+
+/* Mobile navigation */
+.mobile-nav {
+  @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden;
+}
+
+.mobile-nav-item {
+  @apply flex-1 flex flex-col items-center justify-center py-2 px-1 text-xs;
+}
+
+/* Mobile tables */
+.mobile-table {
+  @apply w-full overflow-x-auto;
+}
+
+.mobile-table table {
+  @apply min-w-full;
+}
+
+/* Hide elements on mobile */
+@media (max-width: 767px) {
+  .hide-mobile {
+    @apply hidden;
+  }
+}
+
+/* Show only on mobile */
+@media (min-width: 768px) {
+  .show-mobile-only {
+    @apply hidden;
+  }
+}
+
+/* Additional mobile-specific optimizations */
+@media (max-width: 767px) {
+  /* Make cards more mobile-friendly */
+  .card-mobile {
+    @apply rounded-lg shadow-sm;
+  }
+  
+  /* Optimize text sizes for mobile */
+  .text-mobile-lg {
+    @apply text-lg;
+  }
+  
+  .text-mobile-base {
+    @apply text-base;
+  }
+  
+  .text-mobile-sm {
+    @apply text-sm;
+  }
+  
+  /* Mobile-friendly spacing */
+  .space-mobile {
+    @apply space-y-4;
+  }
+  
+  /* Touch-friendly interactive elements */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* Uppy styles override */

@@ -59,13 +59,13 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Column - Auth Forms */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-6">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+        <div className="w-full max-w-md space-y-4 sm:space-y-6">
           <div className="text-center">
-            <h1 className="text-3xl font-bold">💯 Day Recomp</h1>
-            <p className="text-muted-foreground mt-2">
+            <h1 className="text-2xl sm:text-3xl font-bold">💯 Day Recomp</h1>
+            <p className="text-muted-foreground mt-2 text-sm sm:text-base">
               Join the 100-day body recomposition challenge
             </p>
           </div>
@@ -218,7 +218,7 @@ export default function AuthPage() {
       </div>
 
       {/* Right Column - Hero Section */}
-      <div className="flex-1 bg-gradient-to-br from-blue-600 to-purple-700 text-white p-8 flex items-center justify-center">
+      <div className="hidden lg:flex flex-1 bg-gradient-to-br from-blue-600 to-purple-700 text-white p-8 items-center justify-center">
         <div className="max-w-md text-center">
           <h2 className="text-4xl font-bold mb-6">Transform Your Body</h2>
           <p className="text-xl mb-8 opacity-90">

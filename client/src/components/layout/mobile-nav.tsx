@@ -1,51 +1,39 @@
-import { Link, useLocation } from "wouter";
-import { Home, Trophy, Upload, User, Settings } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
+import { Home, Trophy, Upload, User } from "lucide-react";
 
 export function MobileNav() {
-  const [location] = useLocation();
-  const { user } = useAuth();
+  const [location, setLocation] = useLocation();
 
-  const baseItems = [
-    { href: "/", label: "Dashboard", icon: Home },
-    { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-    { href: "/upload", label: "Upload", icon: Upload },
-    { href: "/profile", label: "Profile", icon: User },
+  const navItems = [
+    { path: "/", icon: Home, label: "Home" },
+    { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
+    { path: "/upload", icon: Upload, label: "Upload" },
+    { path: "/profile", icon: User, label: "Profile" },
   ];
 
-  // Debug: log user data to console  
-  console.log("MobileNav - user object:", user);
-  console.log("MobileNav - username check:", user?.username, user?.username === "Jaron");
-
-  const navItems = user?.username === "Jaron" 
-    ? [...baseItems, { href: "/admin", label: "Admin", icon: Settings }]
-    : baseItems;
-
-  const isActive = (href: string) => {
-    if (href === "/" && location === "/") return true;
-    if (href !== "/" && location.startsWith(href)) return true;
-    return false;
-  };
-
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-inset-bottom">
-      <div className={`grid ${navItems.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} py-1 pb-safe`}>
+    <div className="mobile-nav">
+      <div className="flex">
         {navItems.map((item) => {
           const Icon = item.icon;
+          const isActive = location === item.path;
+          
           return (
-            <Link key={item.href} href={item.href}>
-              <div
-                className={`flex flex-col items-center py-3 px-2 transition-colors touch-target cursor-pointer ${
-                  isActive(item.href) ? "text-primary bg-primary/5" : "text-gray-500"
-                }`}
-              >
-                <Icon className="h-5 w-5 mb-1" />
-                <span className="text-xs font-medium">{item.label}</span>
-              </div>
-            </Link>
+            <button
+              key={item.path}
+              onClick={() => setLocation(item.path)}
+              className={`mobile-nav-item ${
+                isActive 
+                  ? "text-primary bg-primary/10" 
+                  : "text-gray-600 hover:text-primary hover:bg-gray-50"
+              }`}
+            >
+              <Icon className="h-5 w-5 mb-1" />
+              <span className="font-medium">{item.label}</span>
+            </button>
           );
         })}
       </div>
-    </nav>
+    </div>
   );
 }

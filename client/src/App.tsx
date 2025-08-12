@@ -26,12 +26,22 @@ function Router() {
       <Switch>
         <Route path="/auth" component={AuthPage} />
         <Route path="/verify-email" component={VerifyEmailPage} />
-        <VerifiedRoute path="/" component={Dashboard} />
-        <VerifiedRoute path="/leaderboard" component={Leaderboard} />
-        <VerifiedRoute path="/profile" component={Profile} />
-        <VerifiedRoute path="/upload" component={Upload} />
-        <VerifiedRoute path="/admin" component={AdminPage} />
-        <Route component={NotFound} />
+        <Route>
+          <div className="flex flex-col min-h-screen">
+            <Header />
+            <main className="flex-1 pb-16 md:pb-0">
+              <Switch>
+                <VerifiedRoute path="/" component={Dashboard} />
+                <VerifiedRoute path="/leaderboard" component={Leaderboard} />
+                <VerifiedRoute path="/profile" component={Profile} />
+                <VerifiedRoute path="/upload" component={Upload} />
+                <VerifiedRoute path="/admin" component={AdminPage} />
+                <Route component={NotFound} />
+              </Switch>
+            </main>
+            <MobileNav />
+          </div>
+        </Route>
       </Switch>
     </div>
   );
