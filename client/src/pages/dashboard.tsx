@@ -74,8 +74,8 @@ export default function Dashboard() {
     ? ((latestScan.leanMass - baselineScan.leanMass) / baselineScan.leanMass) * 100
     : 0;
 
-  // Check if user has minimum required scans for scoring
-  const hasMinimumScans = scans.length >= 2 && baselineScan && latestScan;
+  // Check if user has minimum required scans for participation
+  const hasMinimumScans = scans.length >= 1 && baselineScan;
 
   return (
     <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
@@ -106,25 +106,21 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Minimum Scans Required Message */}
+      {/* Welcome Message for New Users */}
       {!hasMinimumScans && (
-        <Card className="mb-6 border-amber-200 bg-amber-50">
+        <Card className="mb-6 border-blue-200 bg-blue-50">
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="p-3 bg-amber-100 rounded-lg">
-                <Calendar className="h-5 w-5 text-amber-600" />
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Calendar className="h-5 w-5 text-blue-600" />
               </div>
               <div className="ml-4">
-                <h3 className="text-lg font-medium text-amber-800">Upload Your Progress Scan</h3>
-                <p className="text-amber-700">
-                  You need at least 2 DEXA scans (1 baseline + 1 progress) to calculate your competition score.
-                  {scans.length === 1 && baselineScan 
-                    ? " You have your baseline scan - now upload a progress scan to see your scores!"
-                    : " Upload your baseline scan and a progress scan to get started."
-                  }
+                <h3 className="text-lg font-medium text-blue-800">Join the Competition!</h3>
+                <p className="text-blue-700">
+                  Upload your baseline DEXA scan to join the 100-day recomposition challenge and appear on the leaderboard!
                 </p>
                 <Button 
-                  className="mt-3 bg-amber-600 hover:bg-amber-700" 
+                  className="mt-3 bg-blue-600 hover:bg-blue-700" 
                   onClick={() => setLocation('/upload')}
                 >
                   <Plus className="h-4 w-4 mr-2" />

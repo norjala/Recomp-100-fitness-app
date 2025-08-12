@@ -49,6 +49,18 @@ Preferred communication style: Simple, everyday language.
 - Updated profile page to handle null email/name fields for username accounts
 - Authentication system now supports: usernames (3+ chars), emails, or both account types
 
+**Date: 2025-08-12**
+- **LEADERBOARD REDESIGN COMPLETE**: Converted leaderboard from card layout to fantasy football style table
+- Added clean table format with columns: Name, Body Fat %, Target BF %, Lean Mass (lbs), Target LM (lbs), Days Left
+- Implemented progress bars showing challenge completion percentage (8% complete, 94 days remaining)
+- Added user highlighting with blue background and "You" badge for current user's row
+- Color-coded stats: red for body fat metrics, green for lean mass metrics
+- Mobile-responsive table with horizontal scrolling for smaller screens
+- **SIMPLIFIED PARTICIPATION REQUIREMENTS**: Users now appear on leaderboard with just 1 DEXA scan
+- Removed outdated "2 scans required" messaging from dashboard
+- Updated dashboard welcome message to encourage single baseline scan upload
+- Changed minimum participation from 2 scans to 1 baseline scan for competition entry
+
 # System Architecture
 
 ## Frontend Architecture
