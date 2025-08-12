@@ -15,9 +15,14 @@ export default function Leaderboard() {
     queryKey: ["/api/leaderboard"],
   });
 
-  const { data: contestants, isLoading: contestantsLoading } = useQuery<ContestantEntry[]>({
+  const { data: contestants, isLoading: contestantsLoading, error: contestantsError } = useQuery<ContestantEntry[]>({
     queryKey: ["/api/contestants"],
   });
+  
+  // Debug logging
+  console.log('Contestants data:', contestants);
+  console.log('Contestants loading:', contestantsLoading);
+  console.log('Contestants error:', contestantsError);
 
   // Challenge countdown logic - same as dashboard
   const challengeStartDate = new Date('2025-08-04');
