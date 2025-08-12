@@ -97,29 +97,36 @@ export default function Leaderboard() {
 
       {/* Contestants Table */}
       <Card className="overflow-hidden">
+        <div className="bg-purple-100 border-l-4 border-purple-500 p-4 mb-4">
+          <div className="flex items-center">
+            <div className="text-purple-700 font-medium text-sm">
+              ➤ Scroll right to see your Estimated Score based on target goals
+            </div>
+          </div>
+        </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1200px' }}>
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '180px' }}>
                   Name
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '100px' }}>
                   Body Fat %
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '100px' }}>
                   Target BF %
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>
                   Lean Mass (lbs)
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>
                   Target LM (lbs)
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estimated Score
+                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-purple-50" style={{ width: '120px' }}>
+                  <span className="text-purple-700 font-semibold">Estimated Score</span>
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '140px' }}>
                   Days Left
                 </th>
               </tr>
@@ -178,11 +185,11 @@ export default function Leaderboard() {
                         {contestant.user.targetLeanMass ? `${contestant.user.targetLeanMass} lbs` : '--'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="text-lg font-bold text-purple-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-center bg-purple-50 border-l-2 border-r-2 border-purple-200">
+                      <div className="text-2xl font-bold text-purple-700">
                         {calculateEstimatedScore(contestant)}
                         {calculateEstimatedScore(contestant) !== '--' && (
-                          <div className="text-xs text-gray-500 mt-1">pts</div>
+                          <div className="text-sm text-purple-600 mt-1 font-semibold">POINTS</div>
                         )}
                       </div>
                     </td>
