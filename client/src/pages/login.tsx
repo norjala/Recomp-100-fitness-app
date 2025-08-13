@@ -12,7 +12,7 @@ import { Loader2, User, Lock } from "lucide-react";
 import { loginUserSchema, registerUserSchema } from "@shared/schema";
 import type { LoginUser, RegisterUser } from "@shared/schema";
 
-export default function AuthPage() {
+export default function LoginPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("login");
@@ -82,12 +82,12 @@ export default function AuthPage() {
               <CardContent>
                 <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-username">Username</Label>
+                    <Label htmlFor="username-field">Username</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
-                        id="login-username"
-                        placeholder="Enter your username"
+                        id="username-field"
+                        placeholder="Enter username"
                         className="pl-10 h-12"
                         {...loginForm.register("username")}
                       />
@@ -98,13 +98,13 @@ export default function AuthPage() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="login-password">Password</Label>
+                    <Label htmlFor="password-field">Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
-                        id="login-password"
+                        id="password-field"
                         type="password"
-                        placeholder="••••••••"
+                        placeholder="Enter password"
                         className="pl-10 h-12"
                         {...loginForm.register("password")}
                       />
@@ -135,12 +135,12 @@ export default function AuthPage() {
               <CardContent>
                 <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="register-username">Username</Label>
+                    <Label htmlFor="new-username">Username</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
-                        id="register-username"
-                        placeholder="Choose a username"
+                        id="new-username"
+                        placeholder="Choose username"
                         className="pl-10 h-12"
                         {...registerForm.register("username")}
                       />
@@ -151,13 +151,13 @@ export default function AuthPage() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="register-password">Password</Label>
+                    <Label htmlFor="new-password">Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
-                        id="register-password"
+                        id="new-password"
                         type="password"
-                        placeholder="Create a password"
+                        placeholder="Create password"
                         className="pl-10 h-12"
                         {...registerForm.register("password")}
                       />

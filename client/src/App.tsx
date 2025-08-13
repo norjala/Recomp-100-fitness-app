@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 
 // Pages
-import AuthPage from "@/pages/auth-page";
+import LoginPage from "@/pages/login";
 import VerifyEmailPage from "@/pages/verify-email";
 import Dashboard from "@/pages/dashboard";
 import Leaderboard from "@/pages/leaderboard";
@@ -24,7 +24,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Switch>
-        <Route path="/auth" component={AuthPage} />
+        <Route path="/auth" component={LoginPage} />
         <Route path="/verify-email" component={VerifyEmailPage} />
         <Route>
           <div className="flex flex-col min-h-screen">
