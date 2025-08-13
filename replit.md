@@ -81,6 +81,10 @@ Preferred communication style: Simple, everyday language.
 - Users receive clear "PDF uploaded successfully" message with manual entry guidance
 - System prevents data corruption while maintaining user-friendly upload experience
 - Production-ready solution that handles all PDF formats safely
+- **LIMITATION IDENTIFIED**: Current system designed for manual entry, not automatic data extraction
+- PDFs upload successfully but return zero values - users must manually enter DEXA scan metrics
+- No automatic extraction of Body Fat %, Lean Mass, Total Weight, Fat Mass, or RMR values
+- Manual entry approach chosen for reliability over complex PDF parsing
 
 # System Architecture
 

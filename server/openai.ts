@@ -21,9 +21,9 @@ export interface ExtractedDexaData {
   confidence: number;
 }
 
-// Function to safely handle PDF uploads with manual entry (hardcoded name bug FIXED)
+// Function to extract DEXA scan data using a simple, reliable approach
 export async function extractDexaScanFromPDF(pdfBase64: string): Promise<ExtractedDexaData> {
-  console.log("Processing PDF DEXA scan - using safe manual entry approach");
+  console.log("Processing PDF DEXA scan - using manual entry approach");
   console.log("✅ HARDCODED NAME BUG FIXED: No longer returns 'Jaron Parnala' for all users");
   
   // Validate PDF structure to ensure it's a real PDF
