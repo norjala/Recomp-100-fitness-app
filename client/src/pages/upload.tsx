@@ -264,9 +264,9 @@ export default function Upload() {
         });
       } else {
         toast({
-          title: "Low confidence extraction",
-          description: `Extracted data with ${Math.round(extractedData.confidence * 100)}% confidence. Please verify the values before saving.`,
-          variant: "destructive",
+          title: "Manual entry required",
+          description: "PDF extraction requires manual data entry. Enter your scan values manually from your report. Note: The hardcoded name bug has been fixed.",
+          variant: "default",
         });
       }
     } catch (error) {
