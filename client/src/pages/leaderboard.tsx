@@ -97,13 +97,6 @@ export default function Leaderboard() {
 
       {/* Contestants Table */}
       <Card className="overflow-hidden">
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4">
-          <div className="flex items-center">
-            <div className="text-yellow-700 font-bold text-lg">
-              🏆 NEW: Scroll right to see ESTIMATED SCORE column! (Based on your target goals)
-            </div>
-          </div>
-        </div>
         <div className="overflow-x-auto">
           <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1200px' }}>
             <thead className="bg-gray-50">
