@@ -525,7 +525,7 @@ export default function Upload() {
                       type="number"
                       step="0.1"
                       min="50"
-                      placeholder="145.0"
+                      placeholder="[enter goal]"
                       value={formData.targetLeanMass || ''}
                       onChange={(e) => handleInputChange('targetLeanMass', parseFloat(e.target.value) || 0)}
                     />
