@@ -12,6 +12,7 @@ import { Loader2, User, Lock } from "lucide-react";
 import { loginUserSchema, registerUserSchema } from "@shared/schema";
 import type { LoginUser, RegisterUser } from "@shared/schema";
 
+// FORCE REBUILD - NO EMAIL ANYWHERE
 export default function SignInPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
