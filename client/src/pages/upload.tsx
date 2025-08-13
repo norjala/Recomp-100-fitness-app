@@ -495,7 +495,7 @@ export default function Upload() {
                       step="0.1"
                       min="1"
                       max="50"
-                      placeholder="15.0"
+                      placeholder="[enter % goal]"
                       value={formData.targetBodyFatPercent || ''}
                       onChange={(e) => handleInputChange('targetBodyFatPercent', parseFloat(e.target.value) || 0)}
                     />
