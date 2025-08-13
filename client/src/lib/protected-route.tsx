@@ -26,7 +26,7 @@ export function ProtectedRoute({
   if (!user) {
     return (
       <Route path={path}>
-        <Redirect to="/login" />
+        <Redirect to="/signin" />
       </Route>
     );
   }
@@ -56,7 +56,7 @@ export function VerifiedRoute({
   if (!user) {
     return (
       <Route path={path}>
-        <Redirect to="/login" />
+        <Redirect to="/signin" />
       </Route>
     );
   }

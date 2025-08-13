@@ -12,12 +12,12 @@ import { Loader2, User, Lock } from "lucide-react";
 import { loginUserSchema, registerUserSchema } from "@shared/schema";
 import type { LoginUser, RegisterUser } from "@shared/schema";
 
-export default function LoginPage() {
+export default function SignInPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("login");
+  const [activeTab, setActiveTab] = useState("signin");
 
-  const loginForm = useForm<LoginUser>({
+  const signinForm = useForm<LoginUser>({
     resolver: zodResolver(loginUserSchema),
     defaultValues: {
       username: "",
@@ -25,7 +25,7 @@ export default function LoginPage() {
     },
   });
 
-  const registerForm = useForm<RegisterUser>({
+  const signupForm = useForm<RegisterUser>({
     resolver: zodResolver(registerUserSchema),
     defaultValues: {
       username: "",
@@ -39,14 +39,14 @@ export default function LoginPage() {
     }
   }, [user, setLocation]);
 
-  const handleLogin = async (data: LoginUser) => {
+  const handleSignIn = async (data: LoginUser) => {
     const result = await loginMutation.mutateAsync(data);
     if (result) {
       setLocation("/");
     }
   };
 
-  const handleRegister = async (data: RegisterUser) => {
+  const handleSignUp = async (data: RegisterUser) => {
     const result = await registerMutation.mutateAsync(data);
     if (result) {
       setLocation("/");
@@ -60,7 +60,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">💯 Day Recomp</h1>
           <p className="text-gray-600 text-sm">
@@ -70,47 +69,47 @@ export default function LoginPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="login">Login</TabsTrigger>
-            <TabsTrigger value="register">Register</TabsTrigger>
+            <TabsTrigger value="signin">Sign In</TabsTrigger>
+            <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="login">
+          <TabsContent value="signin">
             <Card>
               <CardHeader>
                 <CardTitle className="text-center">Welcome Back</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+                <form onSubmit={signinForm.handleSubmit(handleSignIn)} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="username-field">Username</Label>
+                    <Label htmlFor="signin-username">Username</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
-                        id="username-field"
-                        placeholder="Enter username"
+                        id="signin-username"
+                        placeholder="Your username"
                         className="pl-10 h-12"
-                        {...loginForm.register("username")}
+                        {...signinForm.register("username")}
                       />
                     </div>
-                    {loginForm.formState.errors.username && (
-                      <p className="text-sm text-red-600">{loginForm.formState.errors.username.message}</p>
+                    {signinForm.formState.errors.username && (
+                      <p className="text-sm text-red-600">{signinForm.formState.errors.username.message}</p>
                     )}
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="password-field">Password</Label>
+                    <Label htmlFor="signin-password">Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
-                        id="password-field"
+                        id="signin-password"
                         type="password"
-                        placeholder="Enter password"
+                        placeholder="Your password"
                         className="pl-10 h-12"
-                        {...loginForm.register("password")}
+                        {...signinForm.register("password")}
                       />
                     </div>
-                    {loginForm.formState.errors.password && (
-                      <p className="text-sm text-red-600">{loginForm.formState.errors.password.message}</p>
+                    {signinForm.formState.errors.password && (
+                      <p className="text-sm text-red-600">{signinForm.formState.errors.password.message}</p>
                     )}
                   </div>
 
@@ -127,43 +126,43 @@ export default function LoginPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="register">
+          <TabsContent value="signup">
             <Card>
               <CardHeader>
                 <CardTitle className="text-center">Create Account</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
+                <form onSubmit={signupForm.handleSubmit(handleSignUp)} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="new-username">Username</Label>
+                    <Label htmlFor="signup-username">Username</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
-                        id="new-username"
-                        placeholder="Choose username"
+                        id="signup-username"
+                        placeholder="Pick a username"
                         className="pl-10 h-12"
-                        {...registerForm.register("username")}
+                        {...signupForm.register("username")}
                       />
                     </div>
-                    {registerForm.formState.errors.username && (
-                      <p className="text-sm text-red-600">{registerForm.formState.errors.username.message}</p>
+                    {signupForm.formState.errors.username && (
+                      <p className="text-sm text-red-600">{signupForm.formState.errors.username.message}</p>
                     )}
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="new-password">Password</Label>
+                    <Label htmlFor="signup-password">Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
-                        id="new-password"
+                        id="signup-password"
                         type="password"
-                        placeholder="Create password"
+                        placeholder="Create a password"
                         className="pl-10 h-12"
-                        {...registerForm.register("password")}
+                        {...signupForm.register("password")}
                       />
                     </div>
-                    {registerForm.formState.errors.password && (
-                      <p className="text-sm text-red-600">{registerForm.formState.errors.password.message}</p>
+                    {signupForm.formState.errors.password && (
+                      <p className="text-sm text-red-600">{signupForm.formState.errors.password.message}</p>
                     )}
                   </div>
 
@@ -181,7 +180,6 @@ export default function LoginPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Steps */}
         <div className="mt-8 text-center text-sm text-gray-600">
           <p>1. Upload DEXA scans • 2. Track progress • 3. Compete on leaderboard</p>
         </div>
