@@ -303,11 +303,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "imageBase64 is required" });
       }
 
-      // Remove data URL prefix if present
-      const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
-      
+      // Pass the full data URL (including prefix) to the extraction function
+      // The function will determine if it's a PDF or image and handle accordingly
       const { extractDexaScanData } = await import("./openai");
-      const extractedData = await extractDexaScanData(base64Data);
+      const extractedData = await extractDexaScanData(imageBase64);
       
       res.json(extractedData);
     } catch (error) {

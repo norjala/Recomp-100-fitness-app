@@ -215,19 +215,19 @@ export default function Upload() {
     try {
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        throw new Error("File too large. Please use an image under 10MB.");
+        throw new Error("File too large. Please use a file under 10MB.");
       }
       
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        throw new Error("Please select an image file (JPG, PNG, etc.)");
+      // Validate file type (accept both images and PDFs)
+      if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+        throw new Error("Please select an image file (JPG, PNG, etc.) or PDF file");
       }
 
       // Convert file to base64
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error("Failed to read image file"));
+        reader.onerror = () => reject(new Error("Failed to read file"));
         reader.readAsDataURL(file);
       });
 
@@ -260,7 +260,7 @@ export default function Upload() {
 
         toast({
           title: "Data extracted successfully",
-          description: `Extracted: ${extractedData.bodyFatPercent}% BF, ${extractedData.leanMass}lbs LM, ${extractedData.totalWeight}lbs total${extractedData.scanDate ? `, Date: ${extractedData.scanDate}` : ''} (${Math.round(extractedData.confidence * 100)}% confidence)`,
+          description: `Extracted: ${extractedData.bodyFatPercent}% BF, ${extractedData.leanMass}lbs LM, ${extractedData.totalWeight}lbs total${extractedData.rmr ? `, RMR: ${extractedData.rmr} cal/day` : ''}${extractedData.scanDate ? `, Date: ${extractedData.scanDate}` : ''} (${Math.round(extractedData.confidence * 100)}% confidence)`,
         });
       } else {
         toast({
@@ -271,7 +271,7 @@ export default function Upload() {
       }
     } catch (error) {
       console.error("Failed to extract data:", error);
-      const errorMessage = error instanceof Error ? error.message : "Could not extract data from image. Please enter manually.";
+      const errorMessage = error instanceof Error ? error.message : "Could not extract data from file. Please enter manually.";
       toast({
         title: "Extraction failed",
         description: errorMessage,
