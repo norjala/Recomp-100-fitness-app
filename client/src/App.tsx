@@ -24,6 +24,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Switch>
+        <Route path="/login" component={LoginPage} />
         <Route path="/auth" component={LoginPage} />
         <Route path="/verify-email" component={VerifyEmailPage} />
         <Route>

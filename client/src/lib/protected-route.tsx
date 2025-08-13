@@ -26,7 +26,7 @@ export function ProtectedRoute({
   if (!user) {
     return (
       <Route path={path}>
-        <Redirect to="/auth" />
+        <Redirect to="/login" />
       </Route>
     );
   }
@@ -56,15 +56,7 @@ export function VerifiedRoute({
   if (!user) {
     return (
       <Route path={path}>
-        <Redirect to="/auth" />
-      </Route>
-    );
-  }
-
-  if (!user.isEmailVerified) {
-    return (
-      <Route path={path}>
-        <Redirect to="/verify-email" />
+        <Redirect to="/login" />
       </Route>
     );
   }
