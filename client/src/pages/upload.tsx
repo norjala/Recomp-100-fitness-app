@@ -259,8 +259,8 @@ export default function Upload() {
         }));
 
         toast({
-          title: "Data extracted successfully",
-          description: `Extracted: ${extractedData.bodyFatPercent}% BF, ${extractedData.leanMass}lbs LM, ${extractedData.totalWeight}lbs total${extractedData.rmr ? `, RMR: ${extractedData.rmr} cal/day` : ''}${extractedData.scanDate ? `, Date: ${extractedData.scanDate}` : ''} (${Math.round(extractedData.confidence * 100)}% confidence)`,
+          title: "Automatic extraction successful!",
+          description: `Body Fat: ${extractedData.bodyFatPercent}% • Lean Mass: ${extractedData.leanMass}lbs • Total: ${extractedData.totalWeight}lbs${extractedData.rmr ? ` • RMR: ${extractedData.rmr}cal` : ''} (${Math.round(extractedData.confidence * 100)}% confidence)`,
         });
       } else {
         toast({
@@ -338,7 +338,8 @@ export default function Upload() {
                 <CloudUpload className="h-10 md:h-12 w-10 md:w-12 text-gray-400 mx-auto mb-3 md:mb-4" />
                 <h4 className="text-base md:text-lg font-medium text-gray-900 mb-2">Upload DEXA Scan Report</h4>
                 <p className="text-sm text-gray-600 mb-4">
-                  Upload your DEXA scan image/PDF and automatically extract the data
+                  <span className="text-green-600 font-medium">✅ Images:</span> Automatic data extraction<br/>
+                  <span className="text-amber-600 font-medium">📄 PDFs:</span> Manual entry required
                 </p>
                 
                 <div className="space-y-4">

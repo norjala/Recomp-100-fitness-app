@@ -21,62 +21,114 @@ export interface ExtractedDexaData {
   confidence: number;
 }
 
-// Function to extract DEXA scan data using a simpler text approach
-export async function extractDexaScanFromPDF(pdfBase64: string): Promise<ExtractedDexaData> {
-  console.log("🔬 Processing PDF DEXA scan...");
+// Function to extract DEXA scan data from images using OpenAI Vision
+export async function extractDexaScanFromImage(imageBase64: string): Promise<ExtractedDexaData> {
+  console.log("Analyzing DEXA scan image with OpenAI Vision...");
   
   try {
-    console.log("🔍 Implementing working DEXA extraction...");
-    
-    // Return the actual DEXA scan values we know from the PDF
-    // This provides immediate functionality while showing the extraction concept works
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OpenAI API key not configured");
+    }
+
+    // Use OpenAI Vision to extract data from the image
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a medical data extraction expert specializing in DEXA scan analysis. Extract all visible data from this DEXA body composition scan report.
+
+Look for and extract:
+- Patient name (First and Last name)
+- Scan date (any format)
+- Body Fat Percentage (%)
+- Total Weight/Mass (lbs or kg - convert kg to lbs: 1 kg = 2.20462 lbs)
+- Lean Mass/Muscle Mass (lbs or kg - convert to lbs)
+- Fat Mass (lbs or kg - convert to lbs)
+- RMR/Metabolic Rate (cal/day)
+
+Common terminology:
+- "Fat Tissue" = fatMass
+- "Lean Tissue" = leanMass  
+- "Total Mass" = totalWeight
+- "Body Fat %" = bodyFatPercent
+
+Be precise with numbers. Convert metric units to imperial if needed.
+
+Return JSON format:
+{
+  "firstName": "John",
+  "lastName": "Doe", 
+  "scanDate": "2025-04-30",
+  "bodyFatPercent": 16.9,
+  "totalWeight": 155.9,
+  "leanMass": 123.2,
+  "fatMass": 26.3,
+  "rmr": 1571
+}`
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Analyze this DEXA scan report and extract all the body composition data. Pay special attention to numerical values and patient information."
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageBase64
+              }
+            }
+          ],
+        },
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 1000,
+    });
+
+    const extractedData = JSON.parse(response.choices[0].message.content || "{}");
+    console.log("OpenAI Vision extraction result:", extractedData);
+
+    // Build DEXA data object
     const dexaData = {
-      bodyFatPercent: 16.9,
-      leanMass: 123.2,
-      totalWeight: 155.9,
-      fatMass: 26.3,
-      rmr: 1571,
-      scanName: "Jaron Parnala",
-      firstName: "Jaron",
-      lastName: "Parnala",
-      scanDate: "2025-04-30",
-      confidence: 0.9
+      bodyFatPercent: Number(extractedData.bodyFatPercent) || 0,
+      leanMass: Number(extractedData.leanMass) || 0,
+      totalWeight: Number(extractedData.totalWeight) || 0,
+      fatMass: Number(extractedData.fatMass) || 0,
+      rmr: extractedData.rmr ? Number(extractedData.rmr) : undefined,
+      scanName: extractedData.firstName && extractedData.lastName ? `${extractedData.firstName} ${extractedData.lastName}` : "",
+      firstName: extractedData.firstName || "",
+      lastName: extractedData.lastName || "",
+      scanDate: extractedData.scanDate || new Date().toISOString().split('T')[0],
+      confidence: 0.85 // High confidence with Vision
     };
-    
-    console.log("✅ DEXA data successfully extracted:");
-    console.log(`  Body Fat: ${dexaData.bodyFatPercent}%`);
-    console.log(`  Lean Mass: ${dexaData.leanMass} lbs`);
-    console.log(`  Total Weight: ${dexaData.totalWeight} lbs`);
-    console.log(`  Fat Mass: ${dexaData.fatMass} lbs`);
-    console.log(`  RMR: ${dexaData.rmr} cal/day`);
-    console.log(`  Patient: ${dexaData.firstName} ${dexaData.lastName}`);
-    console.log(`  Date: ${dexaData.scanDate}`);
-    
-    if (dexaData.confidence > 0.5) {
-      console.log("🎉 SUCCESS: DEXA data extraction working!");
+
+    if (dexaData.bodyFatPercent > 0 || dexaData.leanMass > 0) {
+      console.log("Successfully extracted DEXA data:");
       console.log(`  Body Fat: ${dexaData.bodyFatPercent}%`);
       console.log(`  Lean Mass: ${dexaData.leanMass} lbs`);
       console.log(`  Total Weight: ${dexaData.totalWeight} lbs`);
       console.log(`  Fat Mass: ${dexaData.fatMass} lbs`);
-      if (dexaData.rmr > 0) console.log(`  RMR: ${dexaData.rmr} cal/day`);
+      if (dexaData.rmr) console.log(`  RMR: ${dexaData.rmr} cal/day`);
       console.log(`  Patient: ${dexaData.firstName} ${dexaData.lastName}`);
       console.log(`  Date: ${dexaData.scanDate}`);
     } else {
-      console.log("⚠️ Pattern matching failed");
+      console.log("Could not extract complete DEXA data from image");
     }
     
     return validateAndSanitizeData(dexaData);
 
   } catch (error) {
-    console.error("❌ DEXA processing failed:", error);
+    console.error("Vision processing failed:", error);
     
-    // Safe fallback for manual entry
+    // Return empty data for manual entry
     const fallbackData = {
       bodyFatPercent: 0,
       leanMass: 0,
       totalWeight: 0,
       fatMass: 0,
-      rmr: 0,
+      rmr: undefined,
       scanName: "",
       firstName: "",
       lastName: "",
@@ -88,7 +140,29 @@ export async function extractDexaScanFromPDF(pdfBase64: string): Promise<Extract
   }
 }
 
-// Parse DEXA text content using pattern matching
+// For PDFs, convert them to images first or provide manual entry
+export async function extractDexaScanFromPDF(pdfBase64: string): Promise<ExtractedDexaData> {
+  console.log("PDF processing - recommending image conversion or manual entry");
+  
+  // For now, return empty data to encourage manual entry
+  // In future, could implement PDF-to-image conversion
+  const fallbackData = {
+    bodyFatPercent: 0,
+    leanMass: 0,
+    totalWeight: 0,
+    fatMass: 0,
+    rmr: undefined,
+    scanName: "",
+    firstName: "",
+    lastName: "",
+    scanDate: new Date().toISOString().split('T')[0],
+    confidence: 0.1
+  };
+  
+  return validateAndSanitizeData(fallbackData);
+}
+
+// Parse DEXA text content using flexible pattern matching
 function parseDexaTextContent(text: string): ExtractedDexaData {
   console.log("🔍 Analyzing text patterns for DEXA metrics...");
   
@@ -96,80 +170,108 @@ function parseDexaTextContent(text: string): ExtractedDexaData {
   let leanMass = 0;
   let totalWeight = 0; 
   let fatMass = 0;
-  let rmr = 0;
+  let rmr: number | undefined = undefined;
   let firstName = "";
   let lastName = "";
   let scanDate = "";
   let confidence = 0.1;
   
+  // Clean up text for better pattern matching
+  const normalizedText = text.replace(/\s+/g, ' ').trim();
+  
   try {
-    // Extract patient name from "Client" or "Parnala, Jaron" patterns
-    const nameMatch = text.match(/(?:Client\s+|^)([A-Z][a-z]+),\s*([A-Z][a-z]+)/m);
-    if (nameMatch) {
-      lastName = nameMatch[1];
-      firstName = nameMatch[2];
-      console.log(`Found patient: ${firstName} ${lastName}`);
+    // Extract patient name - try multiple formats
+    const namePatterns = [
+      /(?:Client|Patient|Name)[:\s]*([A-Z][a-z]+),\s*([A-Z][a-z]+)/i,
+      /([A-Z][a-z]+),\s*([A-Z][a-z]+)/,  // "Last, First" format
+      /([A-Z][a-z]+)\s+([A-Z][a-z]+)/    // "First Last" format
+    ];
+    
+    for (const pattern of namePatterns) {
+      const match = normalizedText.match(pattern);
+      if (match) {
+        if (pattern.source.includes(',')) {
+          lastName = match[1];
+          firstName = match[2]; 
+        } else {
+          firstName = match[1];
+          lastName = match[2];
+        }
+        console.log(`Found patient: ${firstName} ${lastName}`);
+        break;
+      }
     }
     
-    // Extract scan date from "Measured Date" patterns
-    const dateMatch = text.match(/Measured Date[:\s]*(\d{1,2}\/\d{1,2}\/\d{4})/);
-    if (dateMatch) {
-      const [month, day, year] = dateMatch[1].split('/');
-      scanDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      console.log(`Found scan date: ${scanDate}`);
+    // Extract scan date
+    const datePatterns = [
+      /(\d{1,2}\/\d{1,2}\/\d{4})/g,
+      /(\d{4}-\d{2}-\d{2})/g,
+      /Measured Date[:\s]*(\d{1,2}\/\d{1,2}\/\d{4})/i
+    ];
+    
+    for (const pattern of datePatterns) {
+      const matches = Array.from(normalizedText.matchAll(pattern));
+      if (matches.length > 0) {
+        const dateStr = matches[0][1];
+        if (dateStr.includes('/')) {
+          const [month, day, year] = dateStr.split('/');
+          scanDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        } else {
+          scanDate = dateStr;
+        }
+        console.log(`Found scan date: ${scanDate}`);
+        break;
+      }
     }
     
-    // Extract specific values using more precise patterns based on the actual DEXA scan format
-    console.log(`Analyzing text for specific DEXA metrics...`);
+    // Extract body composition metrics using flexible patterns
+    console.log("🔍 Searching for body composition data...");
     
-    // Look for the specific row: 4/30/2025                          16.9%                155.9                26.3                 123.2                    6.3
-    const dexaDataMatch = text.match(/4\/30\/2025\s+16\.9%\s+155\.9\s+26\.3\s+123\.2/);
-    if (dexaDataMatch) {
-      // Extract the exact values from the test data
-      bodyFatPercent = 16.9;
-      totalWeight = 155.9;
-      fatMass = 26.3;
-      leanMass = 123.2;
-      
-      console.log(`✅ Found DEXA data row: ${dexaDataMatch[0]}`);
-      console.log(`Found body fat: ${bodyFatPercent}%`);
-      console.log(`Found total weight: ${totalWeight} lbs`);
-      console.log(`Found fat mass: ${fatMass} lbs`);
-      console.log(`Found lean mass: ${leanMass} lbs`);
-    } else {
-      console.log("Tabular pattern not found, trying individual patterns...");
-      
-      // More specific patterns that look for the exact positions
-      const bodyFatMatch = text.match(/16\.9%/);
-      if (bodyFatMatch) {
-        bodyFatPercent = 16.9;
+    // Body fat percentage - look for percentage values that make sense
+    const bodyFatMatches = Array.from(normalizedText.matchAll(/(\d{1,2}\.?\d*)%/g));
+    for (const match of bodyFatMatches) {
+      const value = parseFloat(match[1]);
+      if (value >= 5 && value <= 50) { // Reasonable body fat range
+        bodyFatPercent = value;
         console.log(`Found body fat: ${bodyFatPercent}%`);
-      }
-      
-      const totalWeightMatch = text.match(/155\.9/);
-      if (totalWeightMatch) {
-        totalWeight = 155.9;
-        console.log(`Found total weight: ${totalWeight} lbs`);
-      }
-      
-      const fatMassMatch = text.match(/26\.3/);
-      if (fatMassMatch) {
-        fatMass = 26.3;
-        console.log(`Found fat mass: ${fatMass} lbs`);
-      }
-      
-      const leanMassMatch = text.match(/123\.2/);
-      if (leanMassMatch) {
-        leanMass = 123.2;
-        console.log(`Found lean mass: ${leanMass} lbs`);
+        break;
       }
     }
     
-    // Extract RMR (Resting Metabolic Rate)
-    const rmrMatch = text.match(/(\d{1,2},?\d{3})\s*cal\/day/);
-    if (rmrMatch) {
-      rmr = parseInt(rmrMatch[1].replace(',', ''));
-      console.log(`Found RMR: ${rmr} cal/day`);
+    // Look for weight and mass values - extract numbers that are in reasonable ranges
+    const numberMatches = Array.from(normalizedText.matchAll(/(\d{2,3}\.?\d*)/g));
+    const numbers = numberMatches.map(m => parseFloat(m[1])).filter(n => n >= 50 && n <= 400);
+    
+    if (numbers.length >= 3) {
+      // Sort numbers to assign them logically
+      numbers.sort((a, b) => b - a); // Largest to smallest
+      
+      // Typically: Total Weight > Lean Mass > Fat Mass
+      totalWeight = numbers[0];
+      leanMass = numbers[1];
+      fatMass = numbers[2];
+      
+      console.log(`Found total weight: ${totalWeight} lbs`);
+      console.log(`Found lean mass: ${leanMass} lbs`);
+      console.log(`Found fat mass: ${fatMass} lbs`);
+    }
+    
+    // Look for RMR specifically
+    const rmrPatterns = [
+      /(\d{3,4})\s*cal(?:ories)?\/day/i,
+      /(\d{1,2},\d{3})\s*cal\/day/i
+    ];
+    
+    for (const pattern of rmrPatterns) {
+      const match = normalizedText.match(pattern);
+      if (match) {
+        const value = parseInt(match[1].replace(',', ''));
+        if (value >= 800 && value <= 4000) {
+          rmr = value;
+          console.log(`Found RMR: ${rmr} cal/day`);
+          break;
+        }
+      }
     }
     
     // Calculate confidence based on extracted data
@@ -183,6 +285,7 @@ function parseDexaTextContent(text: string): ExtractedDexaData {
     }
     
     console.log(`Extraction confidence: ${Math.round(confidence * 100)}%`);
+    console.log(`Extracted ${extractedMetrics.length} out of 4 key metrics`);
     
   } catch (parseError) {
     console.error("Error parsing DEXA text:", parseError);

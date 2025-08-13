@@ -294,7 +294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ uploadURL });
   });
 
-  // Extract DEXA scan data from uploaded image
+  // Extract DEXA scan data from uploaded image or PDF
   app.post("/api/extract-dexa-data", requireAuth, async (req: any, res) => {
     try {
       const { imageBase64 } = req.body;
@@ -303,10 +303,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "imageBase64 is required" });
       }
 
-      // Pass the full data URL (including prefix) to the extraction function
-      // The function will determine if it's a PDF or image and handle accordingly
-      const { extractDexaScanData } = await import("./openai");
-      const extractedData = await extractDexaScanData(imageBase64);
+      // Determine file type and use appropriate extraction method
+      const { extractDexaScanFromImage, extractDexaScanFromPDF } = await import("./openai");
+      
+      let extractedData;
+      if (imageBase64.startsWith('data:application/pdf')) {
+        console.log("Processing PDF file");
+        extractedData = await extractDexaScanFromPDF(imageBase64);
+      } else {
+        console.log("Processing image file");
+        extractedData = await extractDexaScanFromImage(imageBase64);
+      }
       
       res.json(extractedData);
     } catch (error) {
