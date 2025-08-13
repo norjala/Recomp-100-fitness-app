@@ -145,10 +145,10 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Stats Grid - Mobile Responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
               <div className="p-3 bg-accent bg-opacity-10 rounded-lg">
                 <Percent className="h-5 w-5 text-accent" />
@@ -170,7 +170,7 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
               <div className="p-3 bg-secondary bg-opacity-10 rounded-lg">
                 <Dumbbell className="h-5 w-5 text-secondary" />
@@ -192,7 +192,7 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
               <div className="p-3 bg-primary bg-opacity-10 rounded-lg">
                 <TrendingUp className="h-5 w-5 text-primary" />
@@ -220,7 +220,7 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
               <div className="p-3 bg-warning bg-opacity-10 rounded-lg">
                 <Calendar className="h-5 w-5 text-warning" />

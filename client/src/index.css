@@ -139,6 +139,21 @@
   @apply min-w-full;
 }
 
+/* Safe area padding for iPhone X+ notch */
+.safe-area-padding {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* iOS specific optimizations */
+@supports (-webkit-touch-callout: none) {
+  .safe-area-padding {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+  }
+}
+
 /* Hide elements on mobile */
 @media (max-width: 767px) {
   .hide-mobile {
