@@ -264,8 +264,8 @@ export default function Upload() {
         });
       } else {
         toast({
-          title: "Manual entry required",
-          description: "PDF extraction requires manual data entry. Enter your scan values manually from your report. Note: The hardcoded name bug has been fixed.",
+          title: "PDF uploaded successfully",
+          description: "Please enter your scan values manually from your DEXA report. All data will be saved accurately.",
           variant: "default",
         });
       }
