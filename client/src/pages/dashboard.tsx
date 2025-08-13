@@ -64,14 +64,27 @@ export default function Dashboard() {
 
   // Calculate changes from baseline scan
   const baselineScan = scans?.find(scan => scan.isBaseline);
-  const latestScan = scans?.find(scan => !scan.isBaseline);
+  // For displaying current stats, use the most recent scan or baseline if it's the only one
+  const latestScan = scans?.length > 0 
+    ? scans.reduce((latest, current) => 
+        new Date(current.scanDate) > new Date(latest.scanDate) ? current : latest
+      )
+    : null;
   
-  const bodyFatChange = baselineScan && latestScan
-    ? ((latestScan.bodyFatPercent - baselineScan.bodyFatPercent) / baselineScan.bodyFatPercent) * 100
+  // For progress calculations, only compare when there are multiple scans
+  const nonBaselineScans = scans?.filter(scan => !scan.isBaseline) || [];
+  const progressScan = nonBaselineScans.length > 0 
+    ? nonBaselineScans.reduce((latest, current) => 
+        new Date(current.scanDate) > new Date(latest.scanDate) ? current : latest
+      )
+    : null;
+  
+  const bodyFatChange = baselineScan && progressScan
+    ? ((progressScan.bodyFatPercent - baselineScan.bodyFatPercent) / baselineScan.bodyFatPercent) * 100
     : 0;
     
-  const leanMassChange = baselineScan && latestScan
-    ? ((latestScan.leanMass - baselineScan.leanMass) / baselineScan.leanMass) * 100
+  const leanMassChange = baselineScan && progressScan
+    ? ((progressScan.leanMass - baselineScan.leanMass) / baselineScan.leanMass) * 100
     : 0;
 
   // Check if user has minimum required scans for participation
