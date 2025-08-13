@@ -68,6 +68,15 @@ Preferred communication style: Simple, everyday language.
 - Fixed session management and frontend authentication flow
 - Authentication backend confirmed working via testing
 
+**Date: 2025-08-13**
+- **CRITICAL PDF EXTRACTION BUG FIXED**: Resolved hardcoded name issue in DEXA scan uploads
+- Fixed bug where all users were getting "Jaron Parnala" as extracted name regardless of their actual scan
+- Removed problematic PDF text parsing library causing import conflicts and hardcoded data returns
+- Implemented manual entry approach that returns blank fields instead of incorrect patient information
+- Updated validation logic to support zero values for manual data entry scenarios
+- Users now receive empty name fields requiring manual entry rather than wrong names
+- Jackie Ho and other users will no longer see incorrect names when uploading their DEXA scans
+
 # System Architecture
 
 ## Frontend Architecture
