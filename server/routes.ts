@@ -2,17 +2,13 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { requireAuth } from "./auth";
-import {
-  ObjectStorageService,
-  ObjectNotFoundError,
-} from "./objectStorage";
-import { ObjectPermission } from "./objectAcl";
+import { requireAuth, hashPassword } from "./auth";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertUserSchema, insertDexaScanSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup new auth system
+  // Setup auth system
   setupAuth(app);
 
   // User registration for competition
@@ -47,7 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bodyFatPercent: registrationData.bodyFat,
         leanMass: registrationData.leanMass,
         totalWeight: registrationData.startingWeight,
-        fatMass: (registrationData.bodyFat / 100) * registrationData.startingWeight, // Calculate fat mass
+        fatMass: (registrationData.bodyFat / 100) * registrationData.startingWeight,
         scanImagePath: registrationData.scanImagePath,
         isBaseline: true,
       });
@@ -65,7 +61,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const { targetBodyFatPercent, targetLeanMass } = req.body;
       
-      // Build the update object with only provided fields
       const updates: any = {};
       if (targetBodyFatPercent !== undefined && targetBodyFatPercent !== null && targetBodyFatPercent !== '') {
         updates.targetBodyFatPercent = Number(targetBodyFatPercent);
@@ -74,13 +69,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updates.targetLeanMass = Number(targetLeanMass);
       }
       
-      // Require at least one field to update
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ message: "At least one target goal must be provided" });
       }
       
       const updatedUser = await storage.updateUser(userId, updates);
-      
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user targets:", error);
@@ -99,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get contestants data (all users with baseline scan info)
+  // Get contestants data
   app.get('/api/contestants', async (req, res) => {
     try {
       const contestants = await storage.getContestants();
@@ -110,24 +103,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin endpoint to fix baseline scans for all users
-  app.post('/api/admin/fix-baselines', async (req, res) => {
-    try {
-      await storage.fixAllBaselines();
-      res.json({ message: "Baseline scans fixed for all users" });
-    } catch (error) {
-      console.error("Error fixing baselines:", error);
-      res.status(500).json({ message: "Failed to fix baseline scans" });
-    }
-  });
-
   // Get user's DEXA scans
   app.get('/api/users/:userId/scans', requireAuth, async (req: any, res) => {
     try {
       const requestedUserId = req.params.userId;
       const currentUserId = req.user.id;
       
-      // Users can only view their own scans
       if (requestedUserId !== currentUserId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -146,7 +127,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const requestedUserId = req.params.userId;
       const currentUserId = req.user.id;
       
-      // Users can only view their own scoring data
       if (requestedUserId !== currentUserId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -171,7 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const scan = await storage.createDexaScan(scanData);
       
-      // If first name and last name are provided in the scan name, update user profile
+      // Update user profile with name if provided
       if (req.body.firstName && req.body.lastName) {
         try {
           await storage.updateUser(userId, {
@@ -181,11 +161,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         } catch (error) {
           console.error("Error updating user name:", error);
-          // Don't fail the scan creation if profile update fails
         }
       }
       
-      // Recalculate all scores after new scan
+      // Recalculate scores
       await storage.recalculateAllScores();
       
       res.json(scan);
@@ -201,7 +180,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const scanId = req.params.scanId;
       const userId = req.user.id;
       
-      // Verify scan belongs to user
       const existingScan = await storage.getDexaScan(scanId);
       if (!existingScan || existingScan.userId !== userId) {
         return res.status(404).json({ message: "Scan not found" });
@@ -214,7 +192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedScan = await storage.updateDexaScan(scanId, updateData);
       
-      // If first name and last name are provided, update user profile
+      // Update user profile if name provided
       if (req.body.firstName && req.body.lastName) {
         try {
           await storage.updateUser(userId, {
@@ -224,13 +202,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         } catch (error) {
           console.error("Error updating user name:", error);
-          // Don't fail the scan update if profile update fails
         }
       }
       
-      // Recalculate all scores after scan update
       await storage.recalculateAllScores();
-      
       res.json(updatedScan);
     } catch (error) {
       console.error("Error updating scan:", error);
@@ -244,15 +219,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const scanId = req.params.scanId;
       const userId = req.user.id;
       
-      // Verify scan belongs to user
       const existingScan = await storage.getDexaScan(scanId);
       if (!existingScan || existingScan.userId !== userId) {
         return res.status(404).json({ message: "Scan not found" });
       }
 
       await storage.deleteDexaScan(scanId);
-      
-      // Recalculate all scores after scan deletion
       await storage.recalculateAllScores();
       
       res.status(204).send();
@@ -262,39 +234,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Object storage endpoints for DEXA scan uploads
-  app.get("/objects/:objectPath(*)", requireAuth, async (req: any, res) => {
-    const userId = req.user?.id;
-    const objectStorageService = new ObjectStorageService();
-    try {
-      const objectFile = await objectStorageService.getObjectEntityFile(
-        req.path,
-      );
-      const canAccess = await objectStorageService.canAccessObjectEntity({
-        objectFile,
-        userId: userId,
-        requestedPermission: ObjectPermission.READ,
-      });
-      if (!canAccess) {
-        return res.sendStatus(401);
-      }
-      objectStorageService.downloadObject(objectFile, res);
-    } catch (error) {
-      console.error("Error checking object access:", error);
-      if (error instanceof ObjectNotFoundError) {
-        return res.sendStatus(404);
-      }
-      return res.sendStatus(500);
-    }
-  });
-
+  // Simplified object storage for Bolt
   app.post("/api/objects/upload", requireAuth, async (req, res) => {
     const objectStorageService = new ObjectStorageService();
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     res.json({ uploadURL });
   });
 
-  // Extract DEXA scan data from uploaded image or PDF
+  // Simplified DEXA data extraction for Bolt
   app.post("/api/extract-dexa-data", requireAuth, async (req: any, res) => {
     try {
       const { imageBase64 } = req.body;
@@ -303,15 +250,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "imageBase64 is required" });
       }
 
-      // Determine file type and use appropriate extraction method
+      // Import extraction functions
       const { extractDexaScanFromImage, extractDexaScanFromPDF } = await import("./openai");
       
       let extractedData;
       if (imageBase64.startsWith('data:application/pdf')) {
-        console.log("Processing PDF file");
         extractedData = await extractDexaScanFromPDF(imageBase64);
       } else {
-        console.log("Processing image file");
         extractedData = await extractDexaScanFromImage(imageBase64);
       }
       
@@ -327,58 +272,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "scanImageURL and scanId are required" });
     }
 
-    const userId = req.user?.id;
-
     try {
       const objectStorageService = new ObjectStorageService();
       const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
         req.body.scanImageURL,
-        {
-          owner: userId,
-          visibility: "private", // DEXA scans are private
-        },
+        { owner: req.user?.id, visibility: "private" }
       );
 
       await storage.updateScanImagePath(req.body.scanId, objectPath);
-
-      res.status(200).json({
-        objectPath: objectPath,
-      });
+      res.status(200).json({ objectPath });
     } catch (error) {
       console.error("Error setting scan image:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
 
-  // Admin endpoint to recalculate all scores
-  app.post('/api/admin/recalculate-scores', requireAuth, async (req: any, res) => {
-    try {
-      await storage.recalculateAllScores();
-      res.json({ message: "Scores recalculated successfully" });
-    } catch (error) {
-      console.error("Error recalculating scores:", error);
-      res.status(500).json({ message: "Failed to recalculate scores" });
-    }
-  });
-
-  // Get user stats
-  app.get('/api/users/:userId/stats', async (req, res) => {
-    try {
-      const userId = req.params.userId;
-      const userStats = await storage.getUserWithStats(userId);
-      
-      if (!userStats) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      res.json(userStats);
-    } catch (error) {
-      console.error("Error fetching user stats:", error);
-      res.status(500).json({ message: "Failed to fetch user stats" });
-    }
-  });
-
-  // Admin routes - only accessible by username "Jaron"
+  // Admin routes
   const requireAdmin = (req: any, res: any, next: any) => {
     if (!req.user || req.user.username !== "Jaron") {
       return res.status(403).json({ message: "Admin access required" });
@@ -386,7 +295,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // Get all users (admin only)
   app.get('/api/admin/users', requireAuth, requireAdmin, async (req: any, res) => {
     try {
       const users = await storage.getAllUsers();
@@ -397,22 +305,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create user (admin only)
   app.post('/api/admin/users', requireAuth, requireAdmin, async (req: any, res) => {
     try {
-      const { username, email, password, name } = req.body;
+      const { username, password, name } = req.body;
       
-      if (!password || (!username && !email)) {
-        return res.status(400).json({ message: "Password and either username or email required" });
+      if (!password || !username) {
+        return res.status(400).json({ message: "Username and password required" });
       }
 
-      // Hash the password
-      const bcrypt = require('bcrypt');
-      const hashedPassword = await bcrypt.hash(password, 10);
-      
+      const hashedPassword = await hashPassword(password);
       const user = await storage.adminCreateUser({
-        username: username || undefined,
-        email: email || undefined,
+        username,
         password: hashedPassword,
         name: name || undefined,
       });
@@ -420,25 +323,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(user);
     } catch (error: any) {
       console.error("Error creating user:", error);
-      if (error.code === '23505') { // Unique violation
-        res.status(400).json({ message: "Username or email already exists" });
+      if (error.code === '23505') {
+        res.status(400).json({ message: "Username already exists" });
       } else {
         res.status(500).json({ message: "Failed to create user" });
       }
     }
   });
 
-  // Update user (admin only)
   app.patch('/api/admin/users/:id', requireAuth, requireAdmin, async (req: any, res) => {
     try {
       const userId = req.params.id;
       const updates = req.body;
       
-      // Don't allow updating sensitive fields through this endpoint
       delete updates.id;
       delete updates.password;
-      delete updates.passwordResetToken;
-      delete updates.emailVerificationToken;
       
       const user = await storage.adminUpdateUser(userId, updates);
       res.json(user);
@@ -448,12 +347,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete user (admin only)
   app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req: any, res) => {
     try {
       const userId = req.params.id;
       
-      // Prevent admin from deleting themselves
       if (userId === req.user.id) {
         return res.status(400).json({ message: "Cannot delete your own account" });
       }
@@ -466,7 +363,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reset user password (admin only)
   app.post('/api/admin/users/:id/reset-password', requireAuth, requireAdmin, async (req: any, res) => {
     try {
       const userId = req.params.id;
@@ -476,14 +372,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Generate a temporary password
       const tempPassword = Math.random().toString(36).slice(-8);
-      const bcrypt = require('bcrypt');
-      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      const hashedPassword = await hashPassword(tempPassword);
       
-      // Update user's password
       await storage.adminUpdateUser(userId, { password: hashedPassword });
-      
       res.json({ message: `Password reset. Temporary password: ${tempPassword}` });
     } catch (error) {
       console.error("Error resetting password:", error);

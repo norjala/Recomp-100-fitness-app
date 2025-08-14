@@ -3,7 +3,6 @@ import { promisify } from "util";
 import { nanoid } from "nanoid";
 import type { Express, RequestHandler } from "express";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import type { User, RegisterUser, LoginUser } from "@shared/schema";
 
@@ -33,19 +32,11 @@ export function generateToken(): string {
 }
 
 export function setupAuth(app: Express) {
-  // Session configuration
+  // Simplified session configuration for Bolt
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
 
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "your-secret-key-change-in-production",
-    store: sessionStore,
+    secret: process.env.SESSION_SECRET || "bolt-session-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -78,9 +69,13 @@ export function setupAuth(app: Express) {
         password: hashedPassword,
       });
 
+      // Auto-login after registration
+      const { password: _, ...userWithoutPassword } = newUser;
+      (req.session as any).user = userWithoutPassword;
+
       return res.status(201).json({ 
         message: "Account created successfully", 
-        user: newUser 
+        user: userWithoutPassword 
       });
     } catch (error) {
       console.error("Registration error:", error);
@@ -124,20 +119,21 @@ export function setupAuth(app: Express) {
       return res.status(401).json({ message: "Not authenticated" });
     }
     
-    // Fetch fresh user data from database to get updated fields like firstName/lastName
+    // Fetch fresh user data from database
     try {
       const freshUser = await storage.getUser(sessionUser.id);
       if (!freshUser) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json(freshUser);
+      
+      // Return user without password
+      const { password: _, ...userWithoutPassword } = freshUser;
+      res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
-
-  // Email-related endpoints removed - username/password only
 }
 
 export const requireAuth: RequestHandler = (req: any, res, next) => {
@@ -148,5 +144,3 @@ export const requireAuth: RequestHandler = (req: any, res, next) => {
   req.user = user;
   next();
 };
-
-// No longer need requireVerifiedEmail since we don't use email verification

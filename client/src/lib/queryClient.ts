@@ -4,17 +4,13 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     let message = res.statusText;
     try {
-      // Clone the response so we can read it multiple times if needed
-      const responseClone = res.clone();
-      const errorData = await responseClone.json();
+      const errorData = await res.json();
       message = errorData.message || res.statusText;
     } catch (parseError) {
-      // If JSON parsing fails, try to read as text from original response
       try {
         const text = await res.text();
         message = text || res.statusText;
       } catch (textError) {
-        // If both fail, use statusText
         message = res.statusText;
       }
     }
