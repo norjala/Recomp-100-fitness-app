@@ -19,6 +19,12 @@ try {
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       email TEXT,
+      name TEXT,
+      gender TEXT,
+      height REAL,
+      starting_weight REAL,
+      target_body_fat_percent REAL,
+      target_lean_mass REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       is_admin BOOLEAN DEFAULT FALSE
     )

@@ -6,6 +6,12 @@ export const users = sqliteTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email"),
+  name: text("name"),
+  gender: text("gender"),
+  height: real("height"),
+  startingWeight: real("starting_weight"),
+  targetBodyFatPercent: real("target_body_fat_percent"),
+  targetLeanMass: real("target_lean_mass"),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
   isAdmin: integer("is_admin", { mode: "boolean" }).default(false),
 });

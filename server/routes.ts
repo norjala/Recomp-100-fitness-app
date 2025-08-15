@@ -20,8 +20,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scanDate: z.string(),
         bodyFat: z.number(),
         leanMass: z.number(),
-        targetBodyFatPercent: z.number(),
-        targetLeanMass: z.number(),
         scanImagePath: z.string().optional(),
       }).parse(req.body);
 
