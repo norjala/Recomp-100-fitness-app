@@ -1,21 +1,56 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import Database from 'better-sqlite3';
 import * as schema from "@shared/schema";
 
-// Default database URL for development
-const defaultDatabaseUrl = 'postgresql://localhost:5432/fitness_challenge';
+// Create SQLite database file
+const sqlite = new Database('fitness_challenge.db');
 
-const databaseUrl = process.env.DATABASE_URL || defaultDatabaseUrl;
+// Enable WAL mode for better performance
+sqlite.pragma('journal_mode = WAL');
 
-if (!databaseUrl) {
-  throw new Error(
-    "DATABASE_URL must be set. Please set up a PostgreSQL database.",
-  );
+export const db = drizzle(sqlite, { schema });
+
+// Initialize tables if they don't exist
+try {
+  // Create users table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      email TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      is_admin BOOLEAN DEFAULT FALSE
+    )
+  `);
+
+  // Create dexa_scans table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS dexa_scans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      scan_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+      body_fat_percentage REAL,
+      muscle_mass REAL,
+      bone_density REAL,
+      visceral_fat REAL,
+      total_weight REAL,
+      image_url TEXT,
+      notes TEXT,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+  `);
+
+  // Create admin user if it doesn't exist
+  const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('Jaron');
+  if (!adminExists) {
+    db.prepare(`
+      INSERT INTO users (username, password, email, is_admin) 
+      VALUES (?, ?, ?, ?)
+    `).run('Jaron', 'password123', 'admin@fitness.com', true);
+  }
+
+  console.log('Database initialized successfully');
+} catch (error) {
+  console.error('Database initialization error:', error);
 }
-
-export const pool = new Pool({ 
-  connectionString: databaseUrl,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
-
-export const db = drizzle(pool, { schema });
