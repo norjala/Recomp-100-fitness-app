@@ -1,41 +1,4 @@
 import OpenAI from 'openai';
-// Robust PDF text extraction using pdfjs-dist
-async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
-  try {
-    // Use pdfjs-dist for more reliable PDF parsing
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js');
-    
-    // Load the PDF document
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(pdfBuffer),
-      useSystemFonts: true,
-    });
-    
-    const pdf = await loadingTask.promise;
-    let fullText = '';
-    
-    // Extract text from all pages
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      
-      // Combine all text items from the page
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      
-      fullText += pageText + '\n';
-    }
-    
-    console.log(`Extracted ${fullText.length} characters from PDF`);
-    return fullText.trim();
-    
-  } catch (error) {
-    console.error('PDF parsing failed:', error);
-    // Return a clear failure message that OpenAI can understand
-    return 'PDF_EXTRACTION_FAILED_MANUAL_ENTRY_REQUIRED';
-  }
-}
 import { getConfig } from './config';
 
 export interface ExtractedDexaData {
@@ -71,6 +34,26 @@ function getOpenAIClient(): OpenAI | null {
     console.error("Failed to initialize OpenAI client:", error);
     return null;
   }
+}
+
+// Simple PDF text extraction with fallbacks
+async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
+  console.log("Starting PDF text extraction...");
+  
+  // Try basic string extraction first (for text-based PDFs)
+  try {
+    const text = pdfBuffer.toString('utf8');
+    if (text.length > 100 && text.includes('%') && (text.includes('body') || text.includes('fat') || text.includes('lean'))) {
+      console.log(`Extracted ${text.length} characters using basic string method`);
+      return text;
+    }
+  } catch (e) {
+    console.log("Basic string extraction failed");
+  }
+
+  // Return failure message for OpenAI to handle
+  console.log("PDF text extraction failed - returning for manual entry");
+  return "PDF_EXTRACTION_FAILED_MANUAL_ENTRY_REQUIRED";
 }
 
 const DEXA_EXTRACTION_PROMPT = `
