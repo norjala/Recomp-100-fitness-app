@@ -1,14 +1,38 @@
 import OpenAI from 'openai';
-// Simple PDF text extraction
+// Robust PDF text extraction using pdfjs-dist
 async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
   try {
-    // Use dynamic import to avoid module loading issues
-    const pdfParse = (await import('pdf-parse')).default;
-    const pdfData = await pdfParse(pdfBuffer);
-    return pdfData.text || '';
+    // Use pdfjs-dist for more reliable PDF parsing
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js');
+    
+    // Load the PDF document
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(pdfBuffer),
+      useSystemFonts: true,
+    });
+    
+    const pdf = await loadingTask.promise;
+    let fullText = '';
+    
+    // Extract text from all pages
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      // Combine all text items from the page
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      
+      fullText += pageText + '\n';
+    }
+    
+    console.log(`Extracted ${fullText.length} characters from PDF`);
+    return fullText.trim();
+    
   } catch (error) {
     console.error('PDF parsing failed:', error);
-    // Return empty string as fallback - let OpenAI know it couldn't extract
+    // Return a clear failure message that OpenAI can understand
     return 'PDF_EXTRACTION_FAILED_MANUAL_ENTRY_REQUIRED';
   }
 }
@@ -174,7 +198,10 @@ export async function extractDexaScanFromPDF(pdfBase64: string): Promise<Extract
     
     if (!pdfText.trim() || pdfText === 'PDF_EXTRACTION_FAILED_MANUAL_ENTRY_REQUIRED') {
       console.log("PDF text extraction failed or returned empty - returning default values");
-      return getDefaultExtractedData();
+      return {
+        ...getDefaultExtractedData(),
+        confidence: 0.1 // Very low confidence to indicate manual entry needed
+      };
     }
 
     // Use OpenAI to analyze the extracted text
