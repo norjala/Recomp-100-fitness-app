@@ -47,6 +47,7 @@ export interface IStorage {
   
   // Admin operations
   getAllUsers(): Promise<User[]>;
+  getAllScans(): Promise<DexaScan[]>;
   deleteUser(id: string): Promise<void>;
   adminCreateUser(userData: { username: string; password: string; name?: string }): Promise<User>;
   adminUpdateUser(id: string, updates: Partial<User>): Promise<User>;
@@ -400,6 +401,10 @@ export class DatabaseStorage implements IStorage {
   // Admin operations
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users).orderBy(asc(users.createdAt));
+  }
+
+  async getAllScans(): Promise<DexaScan[]> {
+    return await db.select().from(dexaScans).orderBy(desc(dexaScans.scanDate));
   }
 
   async deleteUser(id: string): Promise<void> {

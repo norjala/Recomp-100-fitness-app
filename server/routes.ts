@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import { requireAuth, hashPassword } from "./auth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertUserSchema, insertDexaScanSchema } from "@shared/schema";
+import { getAdminUsernames } from "./config";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -24,8 +25,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).parse(req.body);
 
       // Update with competition data
-      const competitionUser = await storage.createCompetitionUser({
-        id: userId,
+      const competitionUser = await storage.updateUser(userId, {
         name: registrationData.name,
         gender: registrationData.gender,
         height: registrationData.height,
@@ -40,8 +40,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scanDate: new Date(registrationData.scanDate),
         bodyFatPercent: registrationData.bodyFat,
         leanMass: registrationData.leanMass,
-        totalWeight: registrationData.startingWeight,
-        fatMass: (registrationData.bodyFat / 100) * registrationData.startingWeight,
+        totalWeight: registrationData.startingWeight || 0,
+        fatMass: (registrationData.bodyFat / 100) * (registrationData.startingWeight || 0),
         scanImagePath: registrationData.scanImagePath,
         isBaseline: true,
       });
@@ -287,7 +287,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin routes
   const requireAdmin = (req: any, res: any, next: any) => {
-    if (!req.user || req.user.username !== "Jaron") {
+    const adminUsernames = getAdminUsernames();
+    
+    if (!req.user || !adminUsernames.includes(req.user.username)) {
       return res.status(403).json({ message: "Admin access required" });
     }
     next();
@@ -378,6 +380,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error resetting password:", error);
       res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  // Health check endpoints
+  app.get('/health', async (req, res) => {
+    try {
+      const health = {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV,
+        version: process.env.npm_package_version || '1.0.0'
+      };
+      
+      res.json(health);
+    } catch (error) {
+      res.status(500).json({ 
+        status: 'unhealthy', 
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.get('/api/health', async (req, res) => {
+    try {
+      // Test database connection
+      const userCount = await storage.getAllUsers().then(users => users.length);
+      const allScans = await storage.getAllScans();
+      const scanCount = allScans.length;
+      
+      const health = {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        database: {
+          connected: true,
+          userCount,
+          scanCount
+        },
+        uptime: process.uptime(),
+        memory: {
+          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+        }
+      };
+      
+      res.json(health);
+    } catch (error) {
+      res.status(500).json({ 
+        status: 'unhealthy',
+        timestamp: new Date().toISOString(),
+        database: {
+          connected: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      });
     }
   });
 

@@ -264,8 +264,8 @@ export default function Upload() {
         });
       } else {
         toast({
-          title: "PDF uploaded successfully",
-          description: "Please enter your scan values manually from your DEXA report. All data will be saved accurately.",
+          title: "Low confidence extraction",
+          description: "Please verify and adjust the extracted values manually. OpenAI may not have detected all metrics accurately.",
           variant: "default",
         });
       }
@@ -339,7 +339,7 @@ export default function Upload() {
                 <h4 className="text-base md:text-lg font-medium text-gray-900 mb-2">Upload DEXA Scan Report</h4>
                 <p className="text-sm text-gray-600 mb-4">
                   <span className="text-green-600 font-medium">✅ Images:</span> Automatic data extraction<br/>
-                  <span className="text-amber-600 font-medium">📄 PDFs:</span> Manual entry required
+                  <span className="text-green-600 font-medium">📄 PDFs:</span> Automatic text extraction
                 </p>
                 
                 <div className="space-y-4">
