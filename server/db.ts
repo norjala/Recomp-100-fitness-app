@@ -1,6 +1,6 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { drizzle } from 'drizzle-orm/libsql';
+import { createClient } from '@libsql/sqlite3';
+import { migrate } from 'drizzle-orm/libsql/migrator';
 import * as schema from "@shared/schema";
 import { getDatabasePath, isTest } from './config';
 import fs from 'fs';
@@ -15,10 +15,9 @@ if (!fs.existsSync(databaseDir)) {
   fs.mkdirSync(databaseDir, { recursive: true });
 }
 
-const sqlite = new Database(databasePath);
-
-// Enable WAL mode for better performance
-sqlite.pragma('journal_mode = WAL');
+const sqlite = createClient({
+  url: `file:${databasePath}`
+});
 
 export const db = drizzle(sqlite, { schema });
 
@@ -41,7 +40,7 @@ export async function initializeDatabase() {
       console.log('Creating tables directly from schema...');
       
       // Create tables using raw SQL since Drizzle doesn't auto-create in SQLite
-      sqlite.exec(`
+      await sqlite.execute(`
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
           username TEXT UNIQUE,
