@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Chart, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/ui/chart";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { DexaScan } from "@shared/schema";
 

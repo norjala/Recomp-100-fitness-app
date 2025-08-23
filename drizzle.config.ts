@@ -2,9 +2,11 @@ import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
   out: "./migrations",
-  schema: "./shared/schema.ts",
+  schema: "./shared/schema.ts", 
   dialect: "sqlite",
   dbCredentials: {
-    url: "./fitness_challenge.db",
+    url: process.env.DATABASE_URL || "./data/fitness_challenge.db",
   },
+  verbose: true,
+  strict: true,
 });

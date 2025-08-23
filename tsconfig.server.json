@@ -1,12 +1,12 @@
 {
   "extends": "./tsconfig.json",
   "include": ["server/**/*", "shared/**/*"],
-  "exclude": ["client/**/*", "node_modules", "build", "dist", "**/*.test.ts"],
+  "exclude": ["client/**/*", "node_modules", "build", "dist", "**/*.test.ts", "vite.config.ts", "server/vite.ts"],
   "compilerOptions": {
     "noEmit": false,
     "outDir": "dist",
     "target": "es2022",
-    "module": "commonjs",
+    "module": "es2022",
     "moduleResolution": "node",
     "allowImportingTsExtensions": false,
     "jsx": "react-jsx",

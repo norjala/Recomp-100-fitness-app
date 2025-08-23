@@ -22,8 +22,7 @@ export function Header() {
   const navItems = [
     { href: "/", label: "Dashboard", id: "dashboard" },
     { href: "/leaderboard", label: "Leaderboard", id: "leaderboard" },
-    { href: "/profile", label: "My Profile", id: "profile" },
-    { href: "/upload", label: "Upload Scan", id: "upload" },
+    { href: "/my-scans", label: "My Scans", id: "my-scans" },
     ...(user?.username === "Jaron" ? [{ href: "/admin", label: "Admin", id: "admin" }] : []),
   ];
 
@@ -71,7 +70,7 @@ export function Header() {
             </nav>
           </div>
           <div className="flex items-center space-x-2 md:space-x-4">
-            <Link href="/upload" className="hidden md:block">
+            <Link href="/my-scans" className="hidden md:block">
               <Button 
                 className="bg-secondary text-white hover:bg-emerald-700"
               >
@@ -79,7 +78,7 @@ export function Header() {
                 New Scan
               </Button>
             </Link>
-            <Link href="/upload" className="md:hidden">
+            <Link href="/my-scans" className="md:hidden">
               <Button size="sm" className="bg-secondary text-white hover:bg-emerald-700">
                 <Plus className="h-4 w-4" />
               </Button>

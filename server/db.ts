@@ -78,6 +78,7 @@ export async function initializeDatabase() {
           scan_name TEXT,
           scan_image_path TEXT,
           is_baseline INTEGER DEFAULT 0,
+          is_final INTEGER DEFAULT 0,
           notes TEXT,
           created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
           updated_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),

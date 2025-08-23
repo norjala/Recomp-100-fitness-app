@@ -40,6 +40,7 @@ export const dexaScans = sqliteTable("dexa_scans", {
   scanName: text("scan_name"),
   scanImagePath: text("scan_image_path"),
   isBaseline: integer("is_baseline", { mode: "boolean" }).default(false),
+  isFinal: integer("is_final", { mode: "boolean" }).default(false),
   notes: text("notes"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
@@ -146,4 +147,116 @@ export interface ContestantEntry {
     leanMass: number;
     scanDate: Date;
   };
+}
+
+// Extraction Analytics tables
+export const extractionAttempts = sqliteTable("extraction_attempts", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fileType: text("file_type", { enum: ["image", "pdf"] }).notNull(),
+  fileSize: integer("file_size").notNull(),
+  extractionMethod: text("extraction_method").notNull(), // 'vision', 'text', 'ocr_fallback', 'manual'
+  vendor: text("vendor"), // detected vendor
+  confidence: real("confidence").default(0),
+  success: integer("success", { mode: "boolean" }).default(false),
+  errorMessage: text("error_message"),
+  processingTime: integer("processing_time"), // milliseconds
+  tokenUsage: integer("token_usage"),
+  retryAttempts: integer("retry_attempts").default(0),
+  fallbackUsed: integer("fallback_used", { mode: "boolean" }).default(false),
+  userCorrected: integer("user_corrected", { mode: "boolean" }).default(false),
+  extractedData: text("extracted_data"), // JSON blob of extracted values
+  finalData: text("final_data"), // JSON blob of user-corrected final values
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const extractionFeedback = sqliteTable("extraction_feedback", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  extractionId: text("extraction_id").notNull().references(() => extractionAttempts.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  accuracy: integer("accuracy"), // 1-5 rating
+  fieldCorrections: text("field_corrections"), // JSON of which fields were wrong
+  userComments: text("user_comments"),
+  suggestedVendor: text("suggested_vendor"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const extractionPatterns = sqliteTable("extraction_patterns", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  vendor: text("vendor").notNull(),
+  fileType: text("file_type", { enum: ["image", "pdf"] }).notNull(),
+  pattern: text("pattern").notNull(), // regex or text pattern that worked
+  fieldType: text("field_type").notNull(), // 'bodyFat', 'leanMass', etc.
+  confidence: real("confidence").default(0),
+  successCount: integer("success_count").default(1),
+  lastUsed: integer("last_used", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const ocrFallbackData = sqliteTable("ocr_fallback_data", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  extractionId: text("extraction_id").notNull().references(() => extractionAttempts.id, { onDelete: "cascade" }),
+  ocrEngine: text("ocr_engine").notNull(), // 'tesseract', 'vision_api', etc.
+  ocrText: text("ocr_text").notNull(),
+  confidence: real("confidence").default(0),
+  processingTime: integer("processing_time"),
+  success: integer("success", { mode: "boolean" }).default(false),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Zod schemas for new tables
+export const insertExtractionAttemptSchema = createInsertSchema(extractionAttempts);
+export const selectExtractionAttemptSchema = createSelectSchema(extractionAttempts);
+
+export const insertExtractionFeedbackSchema = createInsertSchema(extractionFeedback, {
+  accuracy: z.number().min(1).max(5),
+});
+export const selectExtractionFeedbackSchema = createSelectSchema(extractionFeedback);
+
+export const insertExtractionPatternSchema = createInsertSchema(extractionPatterns);
+export const selectExtractionPatternSchema = createSelectSchema(extractionPatterns);
+
+export const insertOcrFallbackDataSchema = createInsertSchema(ocrFallbackData);
+export const selectOcrFallbackDataSchema = createSelectSchema(ocrFallbackData);
+
+// Types for new tables
+export type ExtractionAttempt = typeof extractionAttempts.$inferSelect;
+export type InsertExtractionAttempt = typeof extractionAttempts.$inferInsert;
+
+export type ExtractionFeedback = typeof extractionFeedback.$inferSelect;
+export type InsertExtractionFeedback = typeof extractionFeedback.$inferInsert;
+
+export type ExtractionPattern = typeof extractionPatterns.$inferSelect;
+export type InsertExtractionPattern = typeof extractionPatterns.$inferInsert;
+
+export type OcrFallbackData = typeof ocrFallbackData.$inferSelect;
+export type InsertOcrFallbackData = typeof ocrFallbackData.$inferInsert;
+
+// Extended types for analytics
+export interface ExtractionAnalytics {
+  totalAttempts: number;
+  successRate: number;
+  averageConfidence: number;
+  commonFailures: Array<{
+    error: string;
+    count: number;
+  }>;
+  vendorBreakdown: Array<{
+    vendor: string;
+    attempts: number;
+    successRate: number;
+  }>;
+  methodBreakdown: Array<{
+    method: string;
+    attempts: number;
+    successRate: number;
+  }>;
+}
+
+export interface SmartSuggestion {
+  field: string;
+  value: number | string;
+  confidence: number;
+  source: 'historical' | 'pattern' | 'ocr' | 'estimation';
+  reasoning: string;
 }

@@ -7,11 +7,9 @@ import { AuthProvider } from "@/hooks/use-auth";
 
 // Pages
 import SignInPage from "@/pages/signin";
-import VerifyEmailPage from "@/pages/verify-email";
 import Dashboard from "@/pages/dashboard";
 import Leaderboard from "@/pages/leaderboard";
-import Profile from "@/pages/profile";
-import Upload from "@/pages/upload";
+import MyScans from "@/pages/my-scans";
 import AdminPage from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 
@@ -27,7 +25,6 @@ function Router() {
         <Route path="/signin" component={SignInPage} />
         <Route path="/auth" component={SignInPage} />
         <Route path="/login" component={SignInPage} />
-        <Route path="/verify-email" component={VerifyEmailPage} />
         <Route>
           <div className="flex flex-col min-h-screen">
             <Header />
@@ -35,8 +32,7 @@ function Router() {
               <Switch>
                 <VerifiedRoute path="/" component={Dashboard} />
                 <VerifiedRoute path="/leaderboard" component={Leaderboard} />
-                <VerifiedRoute path="/profile" component={Profile} />
-                <VerifiedRoute path="/upload" component={Upload} />
+                <VerifiedRoute path="/my-scans" component={MyScans} />
                 <VerifiedRoute path="/admin" component={AdminPage} />
                 <Route component={NotFound} />
               </Switch>

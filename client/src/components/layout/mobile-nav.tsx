@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Home, Trophy, Upload, User } from "lucide-react";
+import { Home, Trophy, FileText } from "lucide-react";
 
 export function MobileNav() {
   const [location, setLocation] = useLocation();
@@ -7,8 +7,7 @@ export function MobileNav() {
   const navItems = [
     { path: "/", icon: Home, label: "Home" },
     { path: "/leaderboard", icon: Trophy, label: "Leaderboard" },
-    { path: "/upload", icon: Upload, label: "Upload" },
-    { path: "/profile", icon: User, label: "Profile" },
+    { path: "/my-scans", icon: FileText, label: "My Scans" },
   ];
 
   return (
@@ -16,7 +15,7 @@ export function MobileNav() {
       <div className="flex">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location === item.path;
+          const isActive = item.path === "/" ? location === "/" : location.startsWith(item.path);
           
           return (
             <button

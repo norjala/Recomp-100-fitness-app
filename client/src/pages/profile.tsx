@@ -578,23 +578,6 @@ export default function Profile() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes (Optional)</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Any additional notes about this scan..."
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <div className="flex justify-end space-x-2">
                 <Button 
                   type="button" 

@@ -14,7 +14,7 @@ import {
   type ContestantEntry,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and, isNull, isNotNull, ne } from "drizzle-orm";
+import { eq, desc, asc, and, isNull, isNotNull, ne, gt } from "drizzle-orm";
 
 export interface IStorage {
   // User operations for username/password auth
@@ -122,9 +122,9 @@ export class DatabaseStorage implements IStorage {
       latestScan,
       baselineScan,
       totalScans: userScans.length,
-      totalScore: scoring?.totalScore,
-      fatLossScore: scoring?.fatLossScore,
-      muscleGainScore: scoring?.muscleGainScore,
+      totalScore: scoring?.totalScore ?? undefined,
+      fatLossScore: scoring?.fatLossScore ?? undefined,
+      muscleGainScore: scoring?.muscleGainScore ?? undefined,
     };
   }
 
@@ -254,22 +254,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLeaderboard(): Promise<LeaderboardEntry[]> {
-    const allScoring = await db
+    // Get all active users who have at least one DEXA scan
+    const usersWithScans = await db
       .select({
-        scoring: scoringData,
         user: users,
       })
-      .from(scoringData)
-      .innerJoin(users, eq(scoringData.userId, users.id))
+      .from(users)
+      .innerJoin(dexaScans, eq(users.id, dexaScans.userId))
       .where(eq(users.isActive, true))
-      .orderBy(desc(scoringData.totalScore));
+      .groupBy(users.id, users.username, users.password, users.name, users.firstName, users.lastName, users.email, users.gender, users.height, users.startingWeight, users.targetBodyFatPercent, users.targetLeanMass, users.isActive, users.createdAt, users.updatedAt);
 
     const leaderboard: LeaderboardEntry[] = [];
 
-    for (let i = 0; i < allScoring.length; i++) {
-      const { scoring, user } = allScoring[i];
+    for (let i = 0; i < usersWithScans.length; i++) {
+      const { user } = usersWithScans[i];
       const baselineScan = await this.getBaselineScan(user.id);
       const latestScan = await this.getLatestScan(user.id);
+      const scoring = await this.getScoringData(user.id);
 
       // Get scan name from latest scan that has a name
       const scansWithNames = await db
@@ -317,7 +318,8 @@ export class DatabaseStorage implements IStorage {
       let leanMassChange = 0;
       let progressPercent = 0;
 
-      if (baselineScan && latestScan) {
+      if (baselineScan && latestScan && baselineScan.id !== latestScan.id) {
+        // Only calculate changes if there are 2+ scans
         bodyFatChange = ((latestScan.bodyFatPercent - baselineScan.bodyFatPercent) / baselineScan.bodyFatPercent) * 100;
         leanMassChange = ((latestScan.leanMass - baselineScan.leanMass) / baselineScan.leanMass) * 100;
         
@@ -351,9 +353,9 @@ export class DatabaseStorage implements IStorage {
       leaderboard.push({
         user,
         rank: i + 1,
-        totalScore: scoring.totalScore,
-        fatLossScore: scoring.fatLossScore,
-        muscleGainScore: scoring.muscleGainScore,
+        totalScore: scoring?.totalScore || 0,
+        fatLossScore: scoring?.fatLossScore || 0,
+        muscleGainScore: scoring?.muscleGainScore || 0,
         bodyFatChange,
         leanMassChange,
         progressPercent,
@@ -361,6 +363,14 @@ export class DatabaseStorage implements IStorage {
         latestScan,
       });
     }
+
+    // Sort by total score (users with 0 score will be at the bottom)
+    leaderboard.sort((a, b) => b.totalScore - a.totalScore);
+    
+    // Update ranks after sorting
+    leaderboard.forEach((entry, index) => {
+      entry.rank = index + 1;
+    });
 
     return leaderboard;
   }
@@ -471,25 +481,33 @@ export class DatabaseStorage implements IStorage {
     const user = await this.getUser(userId);
     if (!user) return;
 
-    const baselineScan = await this.getBaselineScan(userId);
     const allScans = await this.getUserScans(userId);
     
-    // Require exactly 1 baseline scan and at least 1 additional scan
-    const nonBaselineScans = allScans.filter(scan => !scan.isBaseline);
+    // P0 Feature: Require BOTH baseline scan AND final scan for competition scoring
+    const baselineScan = allScans.find(scan => scan.isBaseline);
+    const finalScan = allScans.find(scan => scan.isFinal);
     
     if (!baselineScan) {
-      console.log(`No baseline scan found for user ${userId}`);
+      console.log(`User ${userId} needs a designated baseline scan for competition scoring`);
       return;
     }
 
-    if (nonBaselineScans.length === 0) {
-      console.log(`User ${userId} needs at least 2 scans (1 baseline + 1 progress) to calculate score`);
-      // Don't create scoring record yet - user needs more scans
+    // Require at least 2 scans: baseline + at least one more scan
+    if (allScans.length < 2) {
+      console.log(`User ${userId} needs at least 2 DEXA scans for competition scoring (has ${allScans.length})`);
       return;
     }
 
-    // Get the latest non-baseline scan for comparison
-    const latestScan = nonBaselineScans[0]; // Already sorted by desc date
+    // For now, if no explicit final scan, use latest non-baseline scan
+    const competitionFinalScan = finalScan || allScans.filter(scan => !scan.isBaseline)[0];
+    
+    if (!competitionFinalScan) {
+      console.log(`User ${userId} needs both baseline and final scans for competition scoring`);
+      return;
+    }
+
+    console.log(`Competition scoring: ${baselineScan.isBaseline ? 'Baseline' : 'Latest'} vs ${finalScan ? 'Final' : 'Latest non-baseline'} scan`);
+    const latestScan = competitionFinalScan;
 
     console.log(`Calculating scores for user ${userId}:`);
     console.log(`Baseline: BF=${baselineScan.bodyFatPercent}%, LM=${baselineScan.leanMass}lbs`);
@@ -502,50 +520,32 @@ export class DatabaseStorage implements IStorage {
     console.log(`Body fat % change: ${bodyFatPercentChange.toFixed(2)}%`);
     console.log(`Lean mass % change: ${leanMassPercentChange.toFixed(2)}%`);
 
-    // Calculate scores based on percentage improvements
-    const fatLossScore = this.calculateFatLossScoreFromPercent(bodyFatPercentChange, user.gender || "male");
-    const muscleGainScore = this.calculateMuscleGainScoreFromPercent(leanMassPercentChange, user.gender || "male");
+    // Calculate RAW scores using research-based formulas from PDF
+    const fatLossRawScore = this.calculateFatLossScore(
+      baselineScan.bodyFatPercent, 
+      latestScan.bodyFatPercent, 
+      user.gender || "male", 
+      baselineScan.bodyFatPercent
+    );
+    const muscleGainRawScore = this.calculateMuscleGainScore(
+      baselineScan.leanMass, 
+      latestScan.leanMass, 
+      user.gender || "male"
+    );
 
-    console.log(`Calculated scores: FLS=${fatLossScore.toFixed(2)}, MGS=${muscleGainScore.toFixed(2)}`);
+    console.log(`Calculated RAW scores: FLS=${fatLossRawScore.toFixed(2)}, MGS=${muscleGainRawScore.toFixed(2)}`);
 
-    // Store scores
+    // Store RAW scores (normalization happens in recalculateAllScores)
     await this.upsertScoringData({
       userId,
-      fatLossScore,
-      muscleGainScore,
-      totalScore: fatLossScore + muscleGainScore,
-      fatLossRaw: fatLossScore,
-      muscleGainRaw: muscleGainScore,
+      fatLossScore: fatLossRawScore,
+      muscleGainScore: muscleGainRawScore,
+      totalScore: fatLossRawScore + muscleGainRawScore,
+      fatLossRaw: fatLossRawScore,
+      muscleGainRaw: muscleGainRawScore,
     });
   }
 
-  private calculateFatLossScoreFromPercent(bodyFatPercentChange: number, gender: string): number {
-    // Negative change means fat loss (good), positive means fat gain (bad)
-    if (bodyFatPercentChange >= 0) return 0; // No fat loss
-    
-    // Convert to positive for scoring (e.g., -5% becomes 5% fat loss)
-    const fatLossPercent = Math.abs(bodyFatPercentChange);
-    
-    // Base score: 10 points per 1% body fat lost
-    const baseScore = fatLossPercent * 10;
-    
-    // Maximum score cap at 50 points for fat loss component
-    return Math.min(50, baseScore);
-  }
-
-  private calculateMuscleGainScoreFromPercent(leanMassPercentChange: number, gender: string): number {
-    // Positive change means muscle gain (good)
-    if (leanMassPercentChange <= 0) return 0; // No muscle gain
-    
-    // Base score: 20 points per 1% lean mass gained
-    const baseScore = leanMassPercentChange * 20;
-    
-    // Gender multiplier: women get bonus for muscle building difficulty
-    const genderMultiplier = gender === "female" ? 1.5 : 1.0;
-    
-    // Maximum score cap at 50 points for muscle gain component
-    return Math.min(50, baseScore * genderMultiplier);
-  }
 
   private calculateFatLossScore(
     startBF: number,
@@ -597,43 +597,68 @@ export class DatabaseStorage implements IStorage {
       await this.calculateAndUpdateUserScore(scoring.userId);
     }
 
-    // Get all raw scores for normalization
+    // Get all updated raw scores for normalization
     const updatedScoring = await db.select().from(scoringData);
     
     if (updatedScoring.length === 0) return;
 
-    // Find min and max for normalization
-    const fatLossScores = updatedScoring.map(s => s.fatLossRaw).filter(s => s > 0);
-    const muscleGainScores = updatedScoring.map(s => s.muscleGainRaw).filter(s => s > 0);
+    // Find min and max for min-max normalization (1-100 scale for each component)
+    const fatLossScores = updatedScoring.map(s => s.fatLossRaw).filter((s): s is number => s !== null && s > 0);
+    const muscleGainScores = updatedScoring.map(s => s.muscleGainRaw).filter((s): s is number => s !== null);
 
-    const minFLS = Math.min(...fatLossScores);
-    const maxFLS = Math.max(...fatLossScores);
-    const minMGS = Math.min(...muscleGainScores);
-    const maxMGS = Math.max(...muscleGainScores);
+    console.log(`Fat Loss Raw Scores: [${fatLossScores.join(', ')}]`);
+    console.log(`Muscle Gain Raw Scores: [${muscleGainScores.join(', ')}]`);
 
-    // Normalize and update scores
+    // Calculate normalization parameters
+    const minFLS = fatLossScores.length > 0 ? Math.min(...fatLossScores) : 0;
+    const maxFLS = fatLossScores.length > 0 ? Math.max(...fatLossScores) : 0;
+    const minMGS = muscleGainScores.length > 0 ? Math.min(...muscleGainScores) : 0;
+    const maxMGS = muscleGainScores.length > 0 ? Math.max(...muscleGainScores) : 0;
+
+    console.log(`Normalization ranges: FLS [${minFLS.toFixed(2)} - ${maxFLS.toFixed(2)}], MGS [${minMGS.toFixed(2)} - ${maxMGS.toFixed(2)}]`);
+
+    // Normalize and update scores to 1-100 scale per component (max total = 200)
     for (const scoring of updatedScoring) {
       let normalizedFLS = 0;
       let normalizedMGS = 0;
 
-      if (scoring.fatLossRaw > 0 && maxFLS > minFLS) {
+      // Normalize Fat Loss Score to 1-100
+      if (scoring.fatLossRaw && scoring.fatLossRaw > 0 && maxFLS > minFLS) {
         normalizedFLS = 1 + ((scoring.fatLossRaw - minFLS) / (maxFLS - minFLS)) * 99;
+      } else if (scoring.fatLossRaw && scoring.fatLossRaw > 0 && maxFLS === minFLS) {
+        // All users have same fat loss performance
+        normalizedFLS = 100;
       }
 
-      if (scoring.muscleGainRaw > 0 && maxMGS > minMGS) {
-        normalizedMGS = 1 + ((scoring.muscleGainRaw - minMGS) / (maxMGS - minMGS)) * 99;
+      // Normalize Muscle Gain Score to 1-100  
+      if (maxMGS > minMGS) {
+        if (scoring.muscleGainRaw !== null && scoring.muscleGainRaw >= 0) {
+          normalizedMGS = 1 + ((scoring.muscleGainRaw - minMGS) / (maxMGS - minMGS)) * 99;
+        } else {
+          // Negative muscle gain (muscle loss) gets 0 points
+          normalizedMGS = 0;
+        }
+      } else if (scoring.muscleGainRaw && scoring.muscleGainRaw > 0 && maxMGS === minMGS) {
+        // All users have same muscle gain performance
+        normalizedMGS = 100;
       }
+
+      const totalScore = normalizedFLS + normalizedMGS;
+
+      console.log(`User ${scoring.userId}: Raw(${scoring.fatLossRaw?.toFixed(2)}, ${scoring.muscleGainRaw?.toFixed(2)}) → Normalized(${normalizedFLS.toFixed(1)}, ${normalizedMGS.toFixed(1)}) = ${totalScore.toFixed(1)}/200`);
 
       await db
         .update(scoringData)
         .set({
           fatLossScore: normalizedFLS,
           muscleGainScore: normalizedMGS,
-          totalScore: normalizedFLS + normalizedMGS,
+          totalScore: totalScore,
           lastCalculated: new Date(),
         })
         .where(eq(scoringData.userId, scoring.userId));
     }
+    
+    console.log('✅ All scores recalculated using research-based formulas with 1-100 normalization (max 200 total)');
   }
 
   async updateDexaScan(scanId: string, updates: Partial<InsertDexaScan>): Promise<DexaScan> {

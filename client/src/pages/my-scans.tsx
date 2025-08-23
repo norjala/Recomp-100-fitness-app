@@ -9,8 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { Upload as UploadIcon, CloudUpload, Save } from "lucide-react";
-import { type DexaScan } from "@shared/schema";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { ScanComparison } from "@/components/scan-comparison";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertDexaScanSchema } from "@shared/schema";
+import { Upload as UploadIcon, CloudUpload, Save, FileText, Edit, Trash2, Eye } from "lucide-react";
+import { type DexaScan, type UserWithStats, type InsertDexaScan } from "@shared/schema";
 import { z } from "zod";
 import type { UploadResult } from "@uppy/core";
 
@@ -33,11 +44,12 @@ const scanFormSchema = z.object({
 
 type ScanFormData = z.infer<typeof scanFormSchema>;
 
-export default function Upload() {
+export default function MyScans() {
   const { toast } = useToast();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user: authUser, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   
+  // Upload form state
   const [formData, setFormData] = useState({
     scanDate: new Date().toISOString().split('T')[0],
     bodyFatPercent: 0,
@@ -55,20 +67,27 @@ export default function Upload() {
     targetLeanMass: 0,
   });
 
-  // Don't auto-populate target fields - always start with empty placeholders
+  // Edit scan state
+  const [editingScan, setEditingScan] = useState<DexaScan | null>(null);
+  const [targetBodyFat, setTargetBodyFat] = useState<string>('');
+  const [targetLeanMass, setTargetLeanMass] = useState<string>('');
   
   const [uploadedScanId, setUploadedScanId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
 
-  // Query user's existing scans to determine if this is their first scan
-  const { data: userScans = [], isLoading: scansLoading } = useQuery<DexaScan[]>({
-    queryKey: ["/api/users", user?.id, "scans"],
-    enabled: !!user?.id,
+  const { data: user, isLoading: userLoading } = useQuery<UserWithStats>({
+    queryKey: ["/api/user"],
+    enabled: !!authUser,
   });
 
-  const isFirstScan = userScans.length === 0;
+  const { data: scans, isLoading: scansLoading } = useQuery<DexaScan[]>({
+    queryKey: ["/api/users", authUser?.id, "scans"],
+    enabled: !!authUser?.id,
+  });
+
+  const isFirstScan = scans?.length === 0;
   const needsTargetGoals = isFirstScan; // Show header only for first scan
 
   // Mutation to update user target goals
@@ -82,6 +101,7 @@ export default function Upload() {
     },
   });
 
+  // Create scan mutation
   const createScanMutation = useMutation({
     mutationFn: async (data: ScanFormData) => {
       // If target goals are provided, update user targets first
@@ -107,9 +127,9 @@ export default function Upload() {
       // Invalidate all relevant caches to refresh Dashboard, Profile, and Leaderboard
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
-      if (user?.id) {
-        queryClient.invalidateQueries({ queryKey: ["/api/users", user.id, "scans"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/scoring", user.id] });
+      if (authUser?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/users", authUser.id, "scans"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/scoring", authUser.id] });
       }
       
       // Reset form
@@ -139,6 +159,7 @@ export default function Upload() {
     },
   });
 
+  // Update scan image mutation
   const updateScanImageMutation = useMutation({
     mutationFn: async ({ scanId, imageURL }: { scanId: string; imageURL: string }) => {
       const response = await apiRequest("PUT", "/api/scan-images", {
@@ -156,9 +177,9 @@ export default function Upload() {
       // Invalidate caches again after image upload to refresh all pages
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
-      if (user?.id) {
-        queryClient.invalidateQueries({ queryKey: ["/api/users", user.id, "scans"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/scoring", user.id] });
+      if (authUser?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/users", authUser.id, "scans"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/scoring", authUser.id] });
       }
       
       setUploadedScanId(null);
@@ -173,6 +194,96 @@ export default function Upload() {
       });
       setIsUploading(false);
     },
+  });
+
+  // Edit scan mutation
+  const editScanMutation = useMutation({
+    mutationFn: async ({ scanId, updates, firstName, lastName }: { 
+      scanId: string; 
+      updates: Partial<InsertDexaScan>; 
+      firstName?: string; 
+      lastName?: string; 
+    }) => {
+      const res = await apiRequest("PUT", `/api/scans/${scanId}`, {
+        ...updates,
+        firstName,
+        lastName,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", authUser?.id, "scans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/scoring", authUser?.id] });
+      setEditingScan(null);
+      toast({
+        title: "Scan updated",
+        description: "Your DEXA scan has been successfully updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete scan mutation
+  const deleteScanMutation = useMutation({
+    mutationFn: async (scanId: string) => {
+      await apiRequest("DELETE", `/api/scans/${scanId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", authUser?.id, "scans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/scoring", authUser?.id] });
+      toast({
+        title: "Scan deleted",
+        description: "Your DEXA scan has been successfully deleted.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Delete failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update user target goals mutation (for edit dialog)
+  const updateUserMutation = useMutation({
+    mutationFn: async (updates: { targetBodyFatPercent?: number; targetLeanMass?: number }) => {
+      const res = await apiRequest("PUT", "/api/user/targets", updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: "Target goals updated",
+        description: "Your target goals have been successfully updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update failed", 
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const editFormSchema = insertDexaScanSchema.partial().extend({
+    scanDate: z.union([z.string(), z.date()]).optional(),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+  });
+
+  const form = useForm<z.infer<typeof editFormSchema>>({
+    resolver: zodResolver(editFormSchema),
   });
 
   const handleInputChange = (field: string, value: string | number | boolean) => {
@@ -196,6 +307,67 @@ export default function Upload() {
           variant: "destructive",
         });
       }
+    }
+  };
+
+  const handleEditScan = (scan: DexaScan) => {
+    setEditingScan(scan);
+    // Set target goals from user profile
+    setTargetBodyFat(user?.targetBodyFatPercent?.toString() || '');
+    setTargetLeanMass(user?.targetLeanMass?.toString() || '');
+    
+    // Try to split the scan name into first and last name
+    const nameParts = scan.scanName ? scan.scanName.split(/[,\s]+/).filter(part => part.trim()) : [];
+    const firstName = nameParts.length > 1 ? nameParts[1] : nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts[0] : '';
+    
+    form.reset({
+      bodyFatPercent: scan.bodyFatPercent,
+      leanMass: scan.leanMass,
+      totalWeight: scan.totalWeight,
+      fatMass: scan.fatMass || 0,
+      rmr: scan.rmr || 0,
+      firstName: firstName,
+      lastName: lastName,
+      scanDate: new Date(scan.scanDate).toISOString().split('T')[0],
+      isBaseline: scan.isBaseline,
+      notes: scan.notes || '',
+    });
+  };
+
+  const onSubmitEdit = (data: z.infer<typeof editFormSchema>) => {
+    if (!editingScan) return;
+    
+    // Extract the scan update data (excluding firstName/lastName which are for profile)
+    const { firstName, lastName, ...scanUpdateData } = data;
+    
+    // Update target goals if they changed
+    const targetGoalsChanged = 
+      (targetBodyFat && parseFloat(targetBodyFat) !== user?.targetBodyFatPercent) ||
+      (targetLeanMass && parseFloat(targetLeanMass) !== user?.targetLeanMass);
+      
+    if (targetGoalsChanged) {
+      const updates: { targetBodyFatPercent?: number; targetLeanMass?: number } = {};
+      if (targetBodyFat) updates.targetBodyFatPercent = parseFloat(targetBodyFat);
+      if (targetLeanMass) updates.targetLeanMass = parseFloat(targetLeanMass);
+      updateUserMutation.mutate(updates);
+    }
+    
+    editScanMutation.mutate({
+      scanId: editingScan.id,
+      updates: {
+        ...scanUpdateData,
+        scanDate: scanUpdateData.scanDate ? (typeof scanUpdateData.scanDate === 'string' ? new Date(scanUpdateData.scanDate) : scanUpdateData.scanDate) : undefined,
+      },
+      // Pass firstName and lastName separately for profile update  
+      firstName,
+      lastName,
+    });
+  };
+
+  const handleDeleteScan = (scanId: string) => {
+    if (confirm("Are you sure you want to delete this scan? This action cannot be undone.")) {
+      deleteScanMutation.mutate(scanId);
     }
   };
 
@@ -306,12 +478,24 @@ export default function Upload() {
     }
   };
 
-  if (authLoading) {
+  const formatDate = (date: string | Date) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  if (authLoading || userLoading) {
+    return <MyScansSkeleton />;
+  }
+
+  if (!user) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
           <CardContent className="p-6 text-center">
-            <p>Loading...</p>
+            <p>User data not found. Please try refreshing the page.</p>
           </CardContent>
         </Card>
       </div>
@@ -320,13 +504,15 @@ export default function Upload() {
 
   return (
     <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
-      <Card className="card-mobile">
-        <CardContent className="p-4 md:p-6">
-          <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 md:mb-6 flex items-center">
+      {/* Upload DEXA Scan Section */}
+      <Card className="card-mobile mb-8">
+        <div className="px-4 md:px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg md:text-xl font-semibold text-gray-900 flex items-center">
             <UploadIcon className="h-5 w-5 mr-2 text-secondary" />
             Upload DEXA Scan
           </h3>
-          
+        </div>
+        <CardContent className="p-4 md:p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
             {/* File Upload Area */}
             <div>
@@ -390,7 +576,7 @@ export default function Upload() {
                 
                 <p className="text-xs text-gray-500 mt-2">Supports JPG, PNG, PDF up to 10MB</p>
                 
-                {/* Enhanced Extraction Results with Debugging */}
+                {/* Enhanced Extraction Results */}
                 {extractedData && (
                   <div className="mt-4 space-y-3">
                     {/* Main Results */}
@@ -428,7 +614,7 @@ export default function Upload() {
                         extractedData.confidence > 0.4 ? 'text-yellow-700' :
                         'text-red-700'
                       }`}>
-                        {extractedData.scanName && <div>Scan ID: {extractedData.scanName}</div>}
+                        {extractedData.scanName && <div>Name: {extractedData.scanName}</div>}
                         {(extractedData.firstName || extractedData.lastName) && (
                           <div>Extracted Name: {extractedData.firstName} {extractedData.lastName}</div>
                         )}
@@ -457,51 +643,6 @@ export default function Upload() {
                         </div>
                       )}
                     </div>
-
-                    {/* Technical Details (Collapsible) */}
-                    {extractedData.debugInfo && (
-                      <details className="bg-gray-50 border border-gray-200 rounded-md">
-                        <summary className="p-2 text-xs font-medium text-gray-700 cursor-pointer hover:bg-gray-100 rounded-t-md">
-                          Technical Details (Click to expand)
-                        </summary>
-                        <div className="p-3 border-t border-gray-200 text-xs text-gray-600 space-y-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>Method: {extractedData.extractionMethod}</div>
-                            <div>Model: {extractedData.debugInfo.openaiModel}</div>
-                            <div>Processing: {extractedData.debugInfo.processingTime}ms</div>
-                            {extractedData.debugInfo.retryAttempts && (
-                              <div>Retries: {extractedData.debugInfo.retryAttempts}</div>
-                            )}
-                          </div>
-                          
-                          {extractedData.debugInfo.tokenUsage && (
-                            <div>
-                              <div className="font-medium">Token Usage:</div>
-                              <div className="pl-2">
-                                Prompt: {extractedData.debugInfo.tokenUsage.promptTokens} | 
-                                Response: {extractedData.debugInfo.tokenUsage.completionTokens} | 
-                                Total: {extractedData.debugInfo.tokenUsage.totalTokens}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {extractedData.debugInfo.textLength > 0 && (
-                            <div>
-                              <div className="font-medium">Extracted Text ({extractedData.debugInfo.textLength} chars):</div>
-                              <div className="p-2 bg-white border rounded text-xs font-mono max-h-20 overflow-y-auto">
-                                {extractedData.debugInfo.extractedTextPreview}
-                              </div>
-                            </div>
-                          )}
-
-                          {extractedData.debugInfo.fallbackUsed && (
-                            <div className="text-orange-600 font-medium">
-                              ⚠ Fallback extraction method was used
-                            </div>
-                          )}
-                        </div>
-                      </details>
-                    )}
 
                     {/* Low Confidence Warning */}
                     {extractedData.confidence < 0.4 && (
@@ -701,6 +842,410 @@ export default function Upload() {
                 </Button>
               </form>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* My Profile & Progress Section */}
+      <Card className="overflow-hidden card-mobile">
+        <div className="px-4 md:px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg md:text-xl font-semibold text-gray-900">My Profile & Progress</h3>
+        </div>
+        
+        <CardContent className="p-4 md:p-6">
+          {/* Profile Header */}
+          <div className="flex items-center space-x-4 md:space-x-6 mb-6 md:mb-8">
+            <Avatar className="h-20 md:h-24 w-20 md:w-24">
+              <AvatarImage 
+                src={user.profileImageUrl || undefined} 
+                alt={user.name || user.username || user.email || 'User'}
+              />
+              <AvatarFallback className="text-lg md:text-xl">
+                {user.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 
+                 user.username?.charAt(0).toUpperCase() || 
+                 user.email?.charAt(0).toUpperCase() || 
+                 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-lg md:text-xl font-bold text-gray-900 truncate">{user.name || user.username || user.email || 'User'}</h4>
+              <p className="text-gray-600 capitalize text-sm md:text-base">{user.gender || 'Not specified'}</p>
+              <div className="mt-2 flex flex-col md:flex-row md:items-center md:space-x-4 text-xs md:text-sm text-gray-500 space-y-1 md:space-y-0">
+                <span>Height: {user.height || 'Not specified'}</span>
+                <span>Weight: {user.startingWeight || '--'} lbs</span>
+                <span className="hidden md:inline">Joined: {user.createdAt ? formatDate(user.createdAt) : '--'}</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Scan History */}
+          <div className="mb-8">
+            <h5 className="text-lg font-medium text-gray-900 mb-4">DEXA Scan History</h5>
+            {scansLoading ? (
+              <div className="space-y-4">
+                {[...Array(2)].map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : scans && scans.length > 0 ? (
+              <div className="space-y-4">
+                {scans.map((scan) => (
+                  <div 
+                    key={scan.id} 
+                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className={`p-2 rounded-lg ${scan.isBaseline ? 'bg-gray-100' : 'bg-primary bg-opacity-10'}`}>
+                        <FileText className={`h-5 w-5 ${scan.isBaseline ? 'text-gray-400' : 'text-primary'}`} />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {formatDate(scan.scanDate)}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {scan.scanName && <span className="font-medium">{scan.scanName} - </span>}
+                          BF: {scan.bodyFatPercent.toFixed(1)}% | LM: {scan.leanMass.toFixed(1)} lbs | Weight: {scan.totalWeight.toFixed(1)} lbs
+                        </p>
+                        {(scan.fatMass || scan.rmr) && (
+                          <p className="text-xs text-gray-500">
+                            {scan.fatMass && `Fat Mass: ${scan.fatMass.toFixed(1)} lbs`}
+                            {scan.fatMass && scan.rmr && ' | '}
+                            {scan.rmr && `RMR: ${scan.rmr.toFixed(0)} cal/day`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {scan.isBaseline ? (
+                        <Badge variant="secondary">Baseline</Badge>
+                      ) : scans[0].id === scan.id ? (
+                        <Badge className="bg-success text-white">Latest</Badge>
+                      ) : null}
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleEditScan(scan)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleDeleteScan(scan.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      {scan.scanImagePath && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => window.open(scan.scanImagePath!, '_blank')}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-gray-500">No scans uploaded yet</p>
+                <p className="text-sm text-gray-400 mt-2">Upload your first DEXA scan above to get started!</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Side-by-side Comparison */}
+          {user.baselineScan && user.latestScan && (
+            <ScanComparison 
+              baselineScan={user.baselineScan}
+              latestScan={user.latestScan}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit Scan Dialog */}
+      <Dialog open={!!editingScan} onOpenChange={() => setEditingScan(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit DEXA Scan</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmitEdit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="scanDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Scan Date</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="date" 
+                        {...field}
+                        value={typeof field.value === 'string' ? field.value : field.value?.toISOString().split('T')[0] || ''}
+                        onChange={(e) => {
+                          field.onChange(e.target.value);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="First name"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Last name"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="bodyFatPercent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Body Fat %</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.1" 
+                          placeholder="19.1"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="leanMass"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Lean Mass (lbs)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.1" 
+                          placeholder="123.5"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="fatMass"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fat Mass (lbs)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.1" 
+                          placeholder="30.7"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="rmr"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>RMR (cal/day)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="1650"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="totalWeight"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Total Weight (lbs)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.1" 
+                        placeholder="160.4"
+                        {...field}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              {/* Target Goals Section */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-gray-700">Update Target Goals (Optional)</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Target Body Fat %
+                    </label>
+                    <Input 
+                      type="number" 
+                      step="0.1" 
+                      placeholder="13"
+                      value={targetBodyFat}
+                      onChange={(e) => setTargetBodyFat(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Target Lean Mass (lbs)
+                    </label>
+                    <Input 
+                      type="number" 
+                      step="0.1" 
+                      placeholder="125"
+                      value={targetLeanMass}
+                      onChange={(e) => setTargetLeanMass(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Additional notes about this scan..."
+                        className="resize-none"
+                        {...field}
+                        value={field.value || ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="isBaseline"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Baseline Scan</FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Mark this as your starting/baseline scan
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value || false}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setEditingScan(null)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={editScanMutation.isPending}
+                >
+                  {editScanMutation.isPending ? "Updating..." : "Update Scan"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function MyScansSkeleton() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Card>
+        <div className="px-6 py-4 border-b border-gray-200">
+          <Skeleton className="h-6 w-48" />
+        </div>
+        <CardContent className="p-6">
+          <div className="flex items-center space-x-6 mb-8">
+            <Skeleton className="h-24 w-24 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-6 w-40" />
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
           </div>
         </CardContent>
       </Card>
