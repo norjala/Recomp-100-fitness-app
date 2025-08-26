@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/libsql';
-import { createClient } from '@libsql/sqlite3';
+import { createClient } from '@libsql/client';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import * as schema from "@shared/schema";
 import { getDatabasePath, isTest } from './config';

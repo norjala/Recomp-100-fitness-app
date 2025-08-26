@@ -1,16 +1,33 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { requireAuth, hashPassword } from "./auth";
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectStorageService, ObjectNotFoundError, objectStorage } from "./objectStorage";
 import { insertUserSchema, insertDexaScanSchema } from "@shared/schema";
-import { getAdminUsernames } from "./config";
+import { getAdminUsernames, getConfig } from "./config";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup auth system
   setupAuth(app);
+
+  // Configure multer for file uploads
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: getConfig().MAX_FILE_SIZE, // Use config for file size limit
+    },
+    fileFilter: (req, file, cb) => {
+      const isValidType = objectStorage.validateFileType(file.mimetype);
+      if (isValidType) {
+        cb(null, true);
+      } else {
+        cb(new Error(`Invalid file type: ${file.mimetype}`));
+      }
+    }
+  });
 
   // User registration for competition
   app.post('/api/users/register', requireAuth, async (req: any, res) => {
@@ -232,30 +249,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Simplified object storage for Bolt
-  app.post("/api/objects/upload", requireAuth, async (req, res) => {
-    const objectStorageService = new ObjectStorageService();
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-    res.json({ uploadURL });
-  });
-
-  // Simplified DEXA data extraction for Bolt
-  app.post("/api/extract-dexa-data", requireAuth, async (req: any, res) => {
+  // Real file upload endpoint
+  app.post("/api/objects/upload", requireAuth, upload.single('file'), async (req: any, res) => {
     try {
-      const { imageBase64 } = req.body;
-      
-      if (!imageBase64) {
-        return res.status(400).json({ error: "imageBase64 is required" });
+      if (!req.file) {
+        return res.status(400).json({ error: "No file provided" });
       }
 
-      // Import extraction functions
+      // Validate file size (multer already checks, but double-check)
+      if (!objectStorage.validateFileSize(req.file.size)) {
+        return res.status(413).json({ error: "File too large" });
+      }
+
+      // Store the file using our object storage service
+      const objectPath = await objectStorage.storeFile(req.file.originalname, req.file.buffer);
+      
+      res.json({ 
+        objectPath,
+        filename: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
+  // File download endpoint
+  app.get("/api/objects/uploads/:filename", requireAuth, async (req, res) => {
+    try {
+      const objectPath = `/objects/uploads/${req.params.filename}`;
+      await objectStorage.downloadObject(objectPath, res);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      if (error instanceof ObjectNotFoundError) {
+        res.status(404).json({ message: "File not found" });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  // DEXA data extraction with file upload support
+  app.post("/api/extract-dexa-data", requireAuth, upload.single('file'), async (req: any, res) => {
+    try {
+      let extractedData;
       const { extractDexaScanFromImage, extractDexaScanFromPDF } = await import("./openai");
       
-      let extractedData;
-      if (imageBase64.startsWith('data:application/pdf')) {
-        extractedData = await extractDexaScanFromPDF(imageBase64);
+      if (req.file) {
+        // Handle uploaded file
+        const fileBuffer = req.file.buffer;
+        const mimetype = req.file.mimetype;
+        
+        if (mimetype === 'application/pdf') {
+          // Convert buffer to base64 for PDF processing
+          const base64 = `data:application/pdf;base64,${fileBuffer.toString('base64')}`;
+          extractedData = await extractDexaScanFromPDF(base64);
+        } else if (mimetype.startsWith('image/')) {
+          // Convert buffer to base64 for image processing
+          const base64 = `data:${mimetype};base64,${fileBuffer.toString('base64')}`;
+          extractedData = await extractDexaScanFromImage(base64);
+        } else {
+          return res.status(400).json({ error: "Unsupported file type" });
+        }
+      } else if (req.body.imageBase64) {
+        // Handle base64 data (backward compatibility)
+        const { imageBase64 } = req.body;
+        
+        if (imageBase64.startsWith('data:application/pdf')) {
+          extractedData = await extractDexaScanFromPDF(imageBase64);
+        } else {
+          extractedData = await extractDexaScanFromImage(imageBase64);
+        }
       } else {
-        extractedData = await extractDexaScanFromImage(imageBase64);
+        return res.status(400).json({ error: "No file or imageBase64 provided" });
       }
       
       res.json(extractedData);
@@ -383,57 +451,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Health check endpoints
-  app.get('/health', async (req, res) => {
-    try {
-      const health = {
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        environment: process.env.NODE_ENV,
-        version: process.env.npm_package_version || '1.0.0'
-      };
-      
-      res.json(health);
-    } catch (error) {
-      res.status(500).json({ 
-        status: 'unhealthy', 
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
 
-  app.get('/api/health', async (req, res) => {
+  // Backup status endpoint for monitoring
+  app.get('/api/admin/backup-status', requireAuth, requireAdmin, async (req, res) => {
     try {
-      // Test database connection
-      const userCount = await storage.getAllUsers().then(users => users.length);
-      const allScans = await storage.getAllScans();
-      const scanCount = allScans.length;
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const { getConfig } = await import('./config');
       
-      const health = {
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        database: {
-          connected: true,
-          userCount,
-          scanCount
-        },
-        uptime: process.uptime(),
-        memory: {
-          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+      const config = getConfig();
+      const backupDir = config.BACKUP_PATH;
+      
+      try {
+        // Check if backup directory exists
+        await fs.access(backupDir);
+        const backupFiles = await fs.readdir(backupDir);
+        
+        // Filter for database backup files
+        const dbBackups = backupFiles.filter(file => 
+          file.startsWith('fitness_challenge_backup_') && file.endsWith('.db')
+        );
+        
+        // Get details of most recent backup
+        let latestBackup = null;
+        if (dbBackups.length > 0) {
+          const sortedBackups = dbBackups.sort().reverse(); // Most recent first
+          const latestFile = sortedBackups[0];
+          const filePath = path.default.join(backupDir, latestFile);
+          const stats = await fs.stat(filePath);
+          
+          latestBackup = {
+            filename: latestFile,
+            created: stats.birthtime,
+            size: Math.round(stats.size / 1024) + 'KB',
+            ageHours: Math.round((Date.now() - stats.birthtime.getTime()) / (1000 * 60 * 60))
+          };
         }
-      };
-      
-      res.json(health);
+        
+        res.json({
+          status: 'available',
+          backupDirectory: backupDir,
+          totalBackups: dbBackups.length,
+          latestBackup,
+          allBackups: dbBackups.slice(0, 10) // Last 10 backups
+        });
+        
+      } catch (fsError) {
+        res.json({
+          status: 'unavailable',
+          backupDirectory: backupDir,
+          error: fsError instanceof Error ? fsError.message : 'Backup directory inaccessible',
+          totalBackups: 0
+        });
+      }
     } catch (error) {
-      res.status(500).json({ 
-        status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        database: {
-          connected: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }
+      res.status(500).json({
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Backup status check failed'
       });
     }
   });

@@ -3,10 +3,12 @@ builder = "NIXPACKS"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "node scripts/railway-start.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 
 [env]
 NODE_ENV = "production"
+UPLOADS_DIR = "/app/uploads"
+DATABASE_URL = "/app/data/fitness_challenge.db"

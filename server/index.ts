@@ -77,25 +77,93 @@ app.use((req, res, next) => {
     // Detailed health check for monitoring
     app.get('/api/health', async (req, res) => {
       try {
-        // Test database connection
-        const { db } = await import('./db');
-        await db.select().from((await import('../shared/schema')).users).limit(1);
-        
-        res.status(200).json({
+        const healthChecks: any = {
           status: 'healthy',
           timestamp: new Date().toISOString(),
           uptime: process.uptime(),
           environment: config.NODE_ENV,
-          version: process.env.npm_package_version || '1.0.0',
-          database: {
+          version: process.env.npm_package_version || '1.0.0'
+        };
+
+        // Test database connection and get metrics
+        const { db } = await import('./db');
+        const { users, dexaScans, scoringData } = await import('../shared/schema');
+        
+        try {
+          const userCountResult = await db.select().from(users);
+          const scanCountResult = await db.select().from(dexaScans);
+          const scoringCountResult = await db.select().from(scoringData);
+          
+          healthChecks.database = {
             status: 'connected',
-            path: config.DATABASE_URL
-          },
+            path: config.DATABASE_URL,
+            users: userCountResult.length,
+            scans: scanCountResult.length,
+            scores: scoringCountResult.length
+          };
+        } catch (dbError) {
+          healthChecks.database = {
+            status: 'error',
+            path: config.DATABASE_URL,
+            error: dbError instanceof Error ? dbError.message : 'Database connection failed'
+          };
+        }
+
+        // Check file storage
+        const { objectStorage } = await import('./objectStorage');
+        const uploadsDir = objectStorage.getUploadDirectory();
+        const fs = await import('fs/promises');
+        
+        try {
+          await fs.access(uploadsDir);
+          const files = await fs.readdir(uploadsDir);
+          healthChecks.fileStorage = {
+            status: 'available',
+            directory: uploadsDir,
+            filesCount: files.length
+          };
+        } catch (fsError) {
+          healthChecks.fileStorage = {
+            status: 'unavailable',
+            directory: uploadsDir,
+            error: fsError instanceof Error ? fsError.message : 'File system error'
+          };
+        }
+
+        // Memory and system info
+        const memUsage = process.memoryUsage();
+        healthChecks.system = {
           memory: {
-            used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
-            total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
-          }
-        });
+            used: Math.round(memUsage.heapUsed / 1024 / 1024) + 'MB',
+            total: Math.round(memUsage.heapTotal / 1024 / 1024) + 'MB',
+            rss: Math.round(memUsage.rss / 1024 / 1024) + 'MB'
+          },
+          platform: process.platform,
+          nodeVersion: process.version
+        };
+
+        // Competition status
+        const startDate = new Date(config.COMPETITION_START_DATE);
+        const endDate = new Date(config.COMPETITION_END_DATE);
+        const now = new Date();
+        
+        let competitionStatus = 'upcoming';
+        if (now >= startDate && now <= endDate) {
+          competitionStatus = 'active';
+        } else if (now > endDate) {
+          competitionStatus = 'ended';
+        }
+        
+        healthChecks.competition = {
+          status: competitionStatus,
+          startDate: config.COMPETITION_START_DATE,
+          endDate: config.COMPETITION_END_DATE,
+          daysRemaining: competitionStatus === 'active' 
+            ? Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+            : 0
+        };
+
+        res.status(200).json(healthChecks);
       } catch (error) {
         log.error('Health check failed:', error);
         res.status(503).json({

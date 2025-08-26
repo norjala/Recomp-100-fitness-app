@@ -32,21 +32,30 @@ export function generateToken(): string {
 }
 
 export function setupAuth(app: Express) {
-  // Simplified session configuration for Bolt
+  // Production-ready session configuration
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  
+  // Warn about MemoryStore in production (but it's acceptable for 10 users)
+  if (process.env.NODE_ENV === "production") {
+    console.log("⚠️  Using MemoryStore for sessions (acceptable for 10 users)");
+  }
 
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "bolt-session-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
+    name: "recomp.sid", // Custom session name for security
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: sessionTtl,
       sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
     },
+    // Add rolling sessions - extend session on activity
+    rolling: true,
   };
 
+  // Important: Trust Railway's proxy
   app.set("trust proxy", 1);
   app.use(session(sessionSettings));
 
