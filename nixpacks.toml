@@ -1,6 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "python3", "pkg-config"]
-nixLibs = ["libsqlite"]
+nixPkgs = ["nodejs_20", "python3"]
 
 [phases.install]
 cmds = ["npm ci"]
@@ -9,4 +8,4 @@ cmds = ["npm ci"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "npm start"
+cmd = "npm run start:railway"

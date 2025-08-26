@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import fs from 'fs';
-import path from 'path';
+const fs = require('fs');
+const path = require('path');
 
 // Ensure persistent directories exist on Railway
 const directories = [
@@ -27,5 +27,13 @@ for (const dir of directories) {
 
 console.log('🎯 Starting application...');
 
-// Start the main application
-import('../server/index.js');
+// Start the main application using tsx
+const { spawn } = require('child_process');
+const child = spawn('npm', ['start'], {
+  stdio: 'inherit',
+  env: { ...process.env }
+});
+
+child.on('exit', (code) => {
+  process.exit(code);
+});
