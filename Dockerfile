@@ -15,14 +15,17 @@ RUN apk add --no-cache \
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with legacy peer deps for compatibility
-RUN npm ci --production --legacy-peer-deps
+# Install all dependencies (including dev deps for build)
+RUN npm ci --legacy-peer-deps
 
 # Copy application source
 COPY . .
 
 # Build the application
 RUN npm run build
+
+# Remove dev dependencies to reduce image size
+RUN npm prune --production
 
 # Create necessary directories
 RUN mkdir -p /app/data /app/uploads /app/logs
