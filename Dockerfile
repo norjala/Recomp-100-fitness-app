@@ -1,36 +1,46 @@
-# Use Node.js 20 Alpine image for smaller size and security
-# Cache bust: v2.1 - Fix vite build dependencies
-FROM node:20-alpine
+# Multi-stage build to ensure clean dependencies
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
 
 # Install system dependencies needed for native modules
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    sqlite \
-    sqlite-dev
+RUN apk add --no-cache python3 make g++ sqlite sqlite-dev
 
 # Copy package files
 COPY package*.json ./
 
-# Install ALL dependencies including dev dependencies (vite, typescript, etc.)
-# This is required for the build step to work
-RUN npm ci --include=dev --legacy-peer-deps
-
-# Verify vite is installed
-RUN npx vite --version || echo "Vite not found in node_modules"
+# Install ALL dependencies (force fresh install)
+RUN rm -rf node_modules package-lock.json
+RUN npm install --include=dev --legacy-peer-deps
 
 # Copy application source
 COPY . .
 
-# Build the application (requires dev dependencies)
+# Build the application
 RUN npm run build
 
-# Now remove dev dependencies to reduce final image size
-RUN npm prune --omit=dev
+# Production stage
+FROM node:20-alpine AS production
+
+# Set working directory
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apk add --no-cache sqlite
+
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm ci --omit=dev --legacy-peer-deps
+
+# Copy built application from builder stage
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/client ./client
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/shared ./shared
+COPY --from=builder /app/scripts ./scripts
 
 # Create necessary directories
 RUN mkdir -p /app/data /app/uploads /app/logs
