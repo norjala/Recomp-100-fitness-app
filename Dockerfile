@@ -1,4 +1,5 @@
 # Use Node.js 20 Alpine image for smaller size and security
+# Cache bust: v2.1 - Fix vite build dependencies
 FROM node:20-alpine
 
 # Set working directory
@@ -15,17 +16,21 @@ RUN apk add --no-cache \
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev deps for build)
-RUN npm ci --legacy-peer-deps
+# Install ALL dependencies including dev dependencies (vite, typescript, etc.)
+# This is required for the build step to work
+RUN npm ci --include=dev --legacy-peer-deps
+
+# Verify vite is installed
+RUN npx vite --version || echo "Vite not found in node_modules"
 
 # Copy application source
 COPY . .
 
-# Build the application
+# Build the application (requires dev dependencies)
 RUN npm run build
 
-# Remove dev dependencies to reduce image size
-RUN npm prune --production
+# Now remove dev dependencies to reduce final image size
+RUN npm prune --omit=dev
 
 # Create necessary directories
 RUN mkdir -p /app/data /app/uploads /app/logs
