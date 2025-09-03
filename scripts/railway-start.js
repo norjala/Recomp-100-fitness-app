@@ -27,9 +27,9 @@ for (const dir of directories) {
 
 console.log('🎯 Starting application...');
 
-// Start the main application using tsx
+// Start the main application directly with tsx
 const { spawn } = require('child_process');
-const child = spawn('npm', ['start'], {
+const child = spawn('npx', ['tsx', '--experimental-specifier-resolution=node', 'server/index.ts'], {
   stdio: 'inherit',
   env: { ...process.env }
 });

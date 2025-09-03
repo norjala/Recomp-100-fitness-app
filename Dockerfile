@@ -32,8 +32,8 @@ RUN apk add --no-cache sqlite
 # Copy package files
 COPY package*.json ./
 
-# Install only production dependencies
-RUN npm ci --omit=dev --legacy-peer-deps
+# Install production dependencies (keep tsx for runtime)
+RUN npm ci --omit=dev --legacy-peer-deps && npm install tsx --legacy-peer-deps
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
