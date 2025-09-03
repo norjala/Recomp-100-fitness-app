@@ -188,6 +188,7 @@ function createDirectories(config: AppConfig) {
     path.dirname(config.DATABASE_URL),
     config.BACKUP_PATH,
     "./logs",
+    process.env.UPLOADS_DIR || "./uploads", // Render persistent disk uploads
   ];
 
   for (const dir of directories) {
