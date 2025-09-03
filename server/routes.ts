@@ -1,12 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
-import { storage } from "./storage";
-import { setupAuth } from "./auth";
-import { requireAuth, hashPassword } from "./auth";
-import { ObjectStorageService, ObjectNotFoundError, objectStorage } from "./objectStorage";
-import { insertUserSchema, insertDexaScanSchema } from "../shared/schema";
-import { getAdminUsernames, getConfig } from "./config";
+import { storage } from "./storage.js";
+import { setupAuth } from "./auth.js";
+import { requireAuth, hashPassword } from "./auth.js";
+import { ObjectStorageService, ObjectNotFoundError, objectStorage } from "./objectStorage.js";
+import { insertUserSchema, insertDexaScanSchema } from "../shared/schema.js";
+import { getAdminUsernames, getConfig } from "./config.js";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -295,7 +295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/extract-dexa-data", requireAuth, upload.single('file'), async (req: any, res) => {
     try {
       let extractedData;
-      const { extractDexaScanFromImage, extractDexaScanFromPDF } = await import("./openai");
+      const { extractDexaScanFromImage, extractDexaScanFromPDF } = await import("./openai.js");
       
       if (req.file) {
         // Handle uploaded file
@@ -457,7 +457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const fs = await import('fs/promises');
       const path = await import('path');
-      const { getConfig } = await import('./config');
+      const { getConfig } = await import('./config.js');
       
       const config = getConfig();
       const backupDir = config.BACKUP_PATH;

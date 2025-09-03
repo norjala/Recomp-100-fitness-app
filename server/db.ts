@@ -1,8 +1,8 @@
 import { drizzle } from 'drizzle-orm/libsql';
 import { createClient } from '@libsql/client';
 import { migrate } from 'drizzle-orm/libsql/migrator';
-import * as schema from "../shared/schema";
-import { getDatabasePath, isTest } from './config';
+import * as schema from "../shared/schema.js";
+import { getDatabasePath, isTest } from './config.js';
 import fs from 'fs';
 import path from 'path';
 

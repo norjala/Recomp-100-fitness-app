@@ -1,5 +1,5 @@
 // Simple logging system with configurable levels and formats
-import { getConfig, isTest } from './config';
+import { getConfig, isTest } from './config.js';
 import fs from 'fs';
 import path from 'path';
 

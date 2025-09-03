@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import express from "express";
-import { log as logger } from "./logger";
+import { log as logger } from "./logger.js";
 
 // Stub functions for production - actual vite setup not needed
 

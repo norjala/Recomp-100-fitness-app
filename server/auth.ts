@@ -3,14 +3,14 @@ import { promisify } from "util";
 import { nanoid } from "nanoid";
 import type { Express, RequestHandler } from "express";
 import session from "express-session";
-import { storage } from "./storage";
-import type { User, RegisterUser, LoginUser } from "../shared/schema";
+import { storage } from "./storage.js";
+import type { User, RegisterUser, LoginUser } from "../shared/schema.js";
 
 const scryptAsync = promisify(scrypt);
 
 declare global {
   namespace Express {
-    interface User extends Omit<import("../shared/schema").User, 'password'> {}
+    interface User extends Omit<import("../shared/schema.js").User, 'password'> {}
   }
 }
 

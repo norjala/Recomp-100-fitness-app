@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import path from "path";
-import { getConfig } from "./config";
+import { getConfig } from "./config.js";
 
 export class ObjectNotFoundError extends Error {
   constructor(message = "Object not found") {

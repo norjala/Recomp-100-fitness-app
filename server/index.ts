@@ -3,11 +3,11 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import compression from "compression";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes.js";
 // Vite functions imported dynamically to avoid build issues
-import { initializeDatabase } from "./db";
-import { loadConfig, getConfig, getCorsOrigins } from "./config";
-import { log } from "./logger";
+import { initializeDatabase } from "./db.js";
+import { loadConfig, getConfig, getCorsOrigins } from "./config.js";
+import { log } from "./logger.js";
 
 const app = express();
 
@@ -86,8 +86,8 @@ app.use((req, res, next) => {
         };
 
         // Test database connection and get metrics
-        const { db } = await import('./db');
-        const { users, dexaScans, scoringData } = await import('../shared/schema');
+        const { db } = await import('./db.js');
+        const { users, dexaScans, scoringData } = await import('../shared/schema.js');
         
         try {
           const userCountResult = await db.select().from(users);
@@ -110,7 +110,7 @@ app.use((req, res, next) => {
         }
 
         // Check file storage
-        const { objectStorage } = await import('./objectStorage');
+        const { objectStorage } = await import('./objectStorage.js');
         const uploadsDir = objectStorage.getUploadDirectory();
         const fs = await import('fs/promises');
         
@@ -210,7 +210,7 @@ app.use((req, res, next) => {
     });
 
     // Setup static file serving - vite development setup handled separately
-    const { serveStatic } = await import("./vite-production");
+    const { serveStatic } = await import("./vite-production.js");
     serveStatic(app);
 
     // Use configured port

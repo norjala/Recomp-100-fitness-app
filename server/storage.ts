@@ -12,8 +12,8 @@ import {
   type UserWithStats,
   type LeaderboardEntry,
   type ContestantEntry,
-} from "../shared/schema";
-import { db } from "./db";
+} from "../shared/schema.js";
+import { db } from "./db.js";
 import { eq, desc, asc, and, isNull, isNotNull, ne, gt } from "drizzle-orm";
 
 export interface IStorage {
@@ -291,7 +291,7 @@ export class DatabaseStorage implements IStorage {
       if (!user.firstName && scansWithNames[0]?.scanName) {
         const scanName = scansWithNames[0].scanName;
         // Handle formats like "Parnala, Jaron" -> "Jaron" or "Jaron Parnala" -> "Jaron"
-        const nameParts = scanName.split(/[,\s]+/).filter(part => part.trim());
+        const nameParts = scanName.split(/[,\s]+/).filter((part: string) => part.trim());
         if (nameParts.length > 1 && scanName.includes(',')) {
           // Format: "Last, First" -> use second part
           displayName = nameParts[1] || nameParts[0];
