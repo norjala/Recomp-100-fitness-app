@@ -3,7 +3,7 @@ services:
     name: recomp-100-fitness-app
     runtime: node
     buildCommand: npm run build
-    startCommand: npm start
+    startCommand: node dist/server/index.js
     healthCheckPath: /health
     
     # Environment configuration

@@ -1,22 +1,25 @@
 {
-  "extends": "./tsconfig.json",
-  "include": ["server/**/*", "shared/**/*", "scripts/**/*"],
+  "include": ["server/auth.ts", "server/config.ts", "server/db.ts", "server/email.ts", "server/index.ts", "server/logger.ts", "server/objectAcl.ts", "server/objectStorage.ts", "server/openai.ts", "server/routes.ts", "server/storage.ts", "server/vite-production.ts", "shared/**/*"],
   "exclude": ["client/**/*", "node_modules", "build", "dist", "**/*.test.ts", "vite.config.ts", "server/vite.ts"],
   "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo-server",
     "noEmit": false,
     "outDir": "dist",
     "target": "es2022",
-    "module": "es2022",
-    "moduleResolution": "node",
-    "allowImportingTsExtensions": false,
-    "jsx": "react-jsx",
+    "module": "commonjs",
+    "strict": true,
     "lib": ["esnext"],
-    "types": ["node"],
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": false,
+    "moduleResolution": "node",
     "baseUrl": ".",
+    "types": ["node"],
     "paths": {
       "@shared/*": ["./shared/*"]
     },
-    "resolveJsonModule": true,
-    "esModuleInterop": true
+    "resolveJsonModule": true
   }
 }

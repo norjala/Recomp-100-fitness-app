@@ -12,7 +12,7 @@ import {
   type UserWithStats,
   type LeaderboardEntry,
   type ContestantEntry,
-} from "@shared/schema";
+} from "../shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, isNull, isNotNull, ne, gt } from "drizzle-orm";
 

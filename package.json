@@ -1,7 +1,6 @@
 {
   "name": "rest-express",
   "version": "1.0.0",
-  "type": "module",
   "license": "MIT",
   "engines": {
     "node": ">=20.18.0",
@@ -12,7 +11,7 @@
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "tsc --build tsconfig.server.json",
-    "start": "NODE_ENV=production node scripts/render-start.js",
+    "start": "NODE_ENV=production node dist/server/index.js",
     "start:railway": "node scripts/railway-start.js",
     "preview": "npm run build && npm run start",
     "test": "npm run test:backend && npm run test:frontend",

@@ -4,7 +4,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import compression from "compression";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log as viteLog } from "./vite";
+// Vite functions imported dynamically to avoid build issues
 import { initializeDatabase } from "./db";
 import { loadConfig, getConfig, getCorsOrigins } from "./config";
 import { log } from "./logger";
@@ -209,14 +209,9 @@ app.use((req, res, next) => {
       });
     });
 
-    // importantly only setup vite in development and after
-    // setting up all the other routes so the catch-all route
-    // doesn't interfere with the other routes
-    if (config.NODE_ENV === "development") {
-      await setupVite(app, server);
-    } else {
-      serveStatic(app);
-    }
+    // Setup static file serving - vite development setup handled separately
+    const { serveStatic } = await import("./vite-production");
+    serveStatic(app);
 
     // Use configured port
     const port = config.PORT;

@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { requireAuth, hashPassword } from "./auth";
 import { ObjectStorageService, ObjectNotFoundError, objectStorage } from "./objectStorage";
-import { insertUserSchema, insertDexaScanSchema } from "@shared/schema";
+import { insertUserSchema, insertDexaScanSchema } from "../shared/schema";
 import { getAdminUsernames, getConfig } from "./config";
 import { z } from "zod";
 
