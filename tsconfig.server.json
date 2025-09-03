@@ -1,5 +1,5 @@
 {
-  "include": ["server/auth.ts", "server/config.ts", "server/db.ts", "server/email.ts", "server/index.ts", "server/logger.ts", "server/objectAcl.ts", "server/objectStorage.ts", "server/openai.ts", "server/routes.ts", "server/storage.ts", "server/vite-production.ts", "shared/**/*"],
+  "include": ["server/**/*", "shared/**/*"],
   "exclude": ["client/**/*", "node_modules", "build", "dist", "**/*.test.ts", "vite.config.ts", "server/vite.ts"],
   "compilerOptions": {
     "incremental": true,
