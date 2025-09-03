@@ -49,13 +49,13 @@ export function setupAuth(app: Express) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: sessionTtl,
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      sameSite: "lax", // Use lax for better compatibility
     },
     // Add rolling sessions - extend session on activity
     rolling: true,
   };
 
-  // Important: Trust Railway's proxy
+  // Important: Trust Render's proxy
   app.set("trust proxy", 1);
   app.use(session(sessionSettings));
 

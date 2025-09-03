@@ -273,10 +273,27 @@ export function getCompetitionDates(): { start: Date; end: Date } {
 }
 
 export function getCorsOrigins(): string[] {
-  return getConfig()
+  const configOrigins = getConfig()
     .CORS_ORIGINS.split(",")
     .map((origin) => origin.trim())
     .filter((origin) => origin);
+
+  // In production, automatically include common production domains
+  if (process.env.NODE_ENV === "production") {
+    const productionOrigins = [
+      "https://recomp-100-fitness-app.onrender.com",
+      "https://recomp-100-fitness-app-onrender.com", // Alternative format
+    ];
+    
+    // Add production origins if they're not already included
+    productionOrigins.forEach(origin => {
+      if (!configOrigins.includes(origin)) {
+        configOrigins.push(origin);
+      }
+    });
+  }
+
+  return configOrigins;
 }
 
 export function getAllowedFileTypes(): string[] {
