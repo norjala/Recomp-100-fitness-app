@@ -37,9 +37,13 @@ function getOpenAIClient(): OpenAI | null {
   
   const config = getConfig();
   if (!config.OPENAI_API_KEY) {
-    console.log("OpenAI API key not configured - extraction disabled");
+    console.error("❌ CRITICAL: OpenAI API key not configured in environment variables!");
+    console.error("   Please add OPENAI_API_KEY to your Render environment variables");
+    console.error("   AI extraction will return default values (all zeros) until configured");
     return null;
   }
+  
+  console.log("✅ OpenAI API key found, initializing client...");
   
   try {
     openai = new OpenAI({
@@ -410,7 +414,9 @@ export async function extractDexaScanFromImage(imageBase64: string): Promise<Ext
   const client = getOpenAIClient();
   
   if (!client) {
-    console.log("OpenAI not available - returning default values");
+    console.error("❌ OpenAI client not available - returning default values (zeros)");
+    console.error("   This is why your extraction shows 0% body fat, 0 lbs lean mass, etc.");
+    console.error("   Configure OPENAI_API_KEY in Render environment variables to fix this");
     return getDefaultExtractedData();
   }
 
@@ -512,7 +518,9 @@ export async function extractDexaScanFromPDF(pdfBase64: string): Promise<Extract
   const client = getOpenAIClient();
   
   if (!client) {
-    console.log("OpenAI not available - returning default values");
+    console.error("❌ OpenAI client not available - returning default values (zeros)");
+    console.error("   This is why your extraction shows 0% body fat, 0 lbs lean mass, etc.");
+    console.error("   Configure OPENAI_API_KEY in Render environment variables to fix this");
     return getDefaultExtractedData();
   }
 
