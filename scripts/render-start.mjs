@@ -28,6 +28,38 @@ for (const dir of directories) {
 
 console.log('🎯 Starting application...');
 
+// Debug: Check if files exist and show directory structure
+console.log('📁 Current working directory:', process.cwd());
+console.log('📋 Checking for required files...');
+
+const serverFile = path.join(process.cwd(), 'dist/server/index.js');
+console.log('🔍 Looking for server file at:', serverFile);
+
+try {
+  if (fs.existsSync(serverFile)) {
+    console.log('✅ Server file found');
+  } else {
+    console.log('❌ Server file NOT found');
+    
+    // Show what's actually in the dist directory
+    const distDir = path.join(process.cwd(), 'dist');
+    if (fs.existsSync(distDir)) {
+      console.log('📂 Contents of dist directory:');
+      const distContents = fs.readdirSync(distDir, { recursive: true });
+      distContents.forEach(item => console.log(`  - ${item}`));
+    } else {
+      console.log('❌ dist directory does not exist at all');
+    }
+    
+    // Show current directory contents
+    console.log('📂 Contents of current directory:');
+    const currentContents = fs.readdirSync(process.cwd());
+    currentContents.forEach(item => console.log(`  - ${item}`));
+  }
+} catch (error) {
+  console.error('❌ Error checking files:', error);
+}
+
 // Start the built application
 const child = spawn('node', ['dist/server/index.js'], {
   stdio: 'inherit',

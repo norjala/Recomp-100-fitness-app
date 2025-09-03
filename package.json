@@ -11,7 +11,7 @@
     "dev": "NODE_ENV=development tsx --experimental-specifier-resolution=node server/index.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
-    "build:server": "tsc --build tsconfig.server.json",
+    "build:server": "tsc --build tsconfig.server.json --force",
     "start": "NODE_ENV=production node scripts/render-start.mjs",
     "start:railway": "node scripts/railway-start.cjs",
     "preview": "npm run build && npm run start",
