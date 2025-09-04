@@ -1,0 +1,45 @@
+# Nixpacks Build Configuration
+# Optimizes the build process for Railway deployment
+
+[phases.setup]
+# Specify Node.js version and required system packages
+nixPkgs = ["nodejs-18_x", "npm-9_x"]
+
+# Install system dependencies if needed
+aptPkgs = ["build-essential", "python3"]
+
+[phases.install]
+# Install dependencies with clean install for production
+cmds = [
+  "npm ci --production=false",
+  "echo '✅ Dependencies installed successfully'"
+]
+
+# Cache node_modules for faster rebuilds
+cacheDirectories = ["/app/node_modules"]
+
+[phases.build]
+# Build both frontend and backend
+cmds = [
+  "echo '🏗️ Building application...'",
+  "npm run build",
+  "echo '✅ Build completed successfully'",
+  "ls -la dist/",
+  "ls -la dist/server/ || echo 'Server directory not found'",
+  "ls -la dist/public/ || echo 'Public directory not found'"
+]
+
+[phases.runtime]
+# Ensure Node.js is available at runtime
+nixPkgs = ["nodejs-18_x"]
+
+[start]
+# Use the Railway start script
+cmd = "npm run start:railway"
+
+[variables]
+# Build-time environment variables
+NODE_ENV = "production"
+
+# Optimization flags
+NODE_OPTIONS = "--max-old-space-size=512"
