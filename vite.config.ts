@@ -15,7 +15,7 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
     sourcemap: false, // Disable source maps for production
-    minify: "esbuild", // Faster minification
+    minify: false, // TESTING: Disable minification to check if esbuild breaks RHF
     chunkSizeWarningLimit: 1000, // Increase chunk size limit
     rollupOptions: {
       output: {
