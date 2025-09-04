@@ -108,6 +108,9 @@ export async function initializeDatabase() {
       console.log('Ensuring tables exist (CREATE TABLE IF NOT EXISTS)...');
       
       // Create tables using raw SQL since Drizzle doesn't auto-create in SQLite
+      // Execute each table creation separately for better error handling
+      
+      console.log('Creating users table...');
       await sqlite.execute(`
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
@@ -131,8 +134,12 @@ export async function initializeDatabase() {
           password_reset_expires INTEGER,
           created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
           updated_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
-        );
+        )
+      `);
+      console.log('✅ Users table created successfully');
 
+      console.log('Creating dexa_scans table...');
+      await sqlite.execute(`
         CREATE TABLE IF NOT EXISTS dexa_scans (
           id TEXT PRIMARY KEY,
           user_id TEXT NOT NULL,
@@ -150,8 +157,12 @@ export async function initializeDatabase() {
           created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
           updated_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
+        )
+      `);
+      console.log('✅ DEXA scans table created successfully');
 
+      console.log('Creating scoring_data table...');
+      await sqlite.execute(`
         CREATE TABLE IF NOT EXISTS scoring_data (
           id TEXT PRIMARY KEY,
           user_id TEXT NOT NULL UNIQUE,
@@ -164,14 +175,33 @@ export async function initializeDatabase() {
           created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
           updated_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
+        )
       `);
+      console.log('✅ Scoring data table created successfully');
+      
+      // Verify all tables were created
+      console.log('Verifying table creation...');
+      const tables = await sqlite.execute(`
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name IN ('users', 'dexa_scans', 'scoring_data')
+      `);
+      
+      const createdTables = tables.rows.map(row => row.name);
+      console.log(`✅ Created tables: ${createdTables.join(', ')}`);
+      
+      const expectedTables = ['users', 'dexa_scans', 'scoring_data'];
+      const missingTables = expectedTables.filter(table => !createdTables.includes(table));
+      
+      if (missingTables.length > 0) {
+        console.error(`❌ Missing tables: ${missingTables.join(', ')}`);
+        throw new Error(`Failed to create required database tables: ${missingTables.join(', ')}`);
+      }
     }
     
     // Configure SQLite for production after tables are created
     await configureSQLiteForProduction();
     
-    console.log('Database initialization complete');
+    console.log('✅ Database initialization complete');
   } catch (error) {
     console.error('Database initialization failed:', error);
     throw error;
