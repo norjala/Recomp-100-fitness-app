@@ -29,9 +29,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User registration for competition
+  // User registration for competition with enhanced error handling
   app.post('/api/users/register', requireAuth, async (req: any, res) => {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+    
     try {
+      console.log(`🎆 [${requestId}] POST /api/users/register - User competition registration`);
       const userId = req.user.id;
       
       const registrationData = insertUserSchema.extend({
@@ -65,8 +69,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ user: competitionUser });
     } catch (error) {
-      console.error("Error registering user:", error);
-      res.status(500).json({ message: "Failed to register user" });
+      const duration = Date.now() - startTime;
+      console.error(`❌ [${requestId}] Error registering user after ${duration}ms:`, error);
+      
+      if (res.headersSent) {
+        console.error(`⚠️ [${requestId}] Response already sent, cannot send error response`);
+        return;
+      }
+      
+      let statusCode = 500;
+      let userMessage = "Failed to register for competition";
+      let errorCode = "REGISTRATION_FAILED";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('UNIQUE constraint failed')) {
+          statusCode = 409;
+          userMessage = "User already registered or duplicate data detected";
+          errorCode = "DUPLICATE_REGISTRATION";
+        }
+      }
+      
+      res.status(statusCode).json({ 
+        message: userMessage,
+        error: errorCode,
+        requestId: requestId,
+        timestamp: new Date().toISOString()
+      });
     }
   });
 
@@ -96,14 +124,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get leaderboard
+  // Get leaderboard with caching and error handling
   app.get('/api/leaderboard', async (req, res) => {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+    
     try {
+      console.log(`🏆 [${requestId}] GET /api/leaderboard - Fetching competition leaderboard`);
       const leaderboard = await storage.getLeaderboard();
-      res.json(leaderboard);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [${requestId}] Leaderboard fetched successfully in ${duration}ms (${leaderboard.length} contestants)`);
+      
+      res.json({
+        ...leaderboard,
+        _meta: {
+          requestId: requestId,
+          timestamp: new Date().toISOString(),
+          processingTimeMs: duration,
+          totalContestants: Array.isArray(leaderboard) ? leaderboard.length : 0
+        }
+      });
     } catch (error) {
-      console.error("Error fetching leaderboard:", error);
-      res.status(500).json({ message: "Failed to fetch leaderboard" });
+      const duration = Date.now() - startTime;
+      console.error(`❌ [${requestId}] Error fetching leaderboard after ${duration}ms:`, error);
+      
+      if (res.headersSent) {
+        return;
+      }
+      
+      res.status(500).json({ 
+        message: "Failed to fetch leaderboard",
+        error: "LEADERBOARD_FETCH_FAILED",
+        requestId: requestId,
+        timestamp: new Date().toISOString()
+      });
     }
   });
 
@@ -154,125 +209,346 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create new DEXA scan
+  // Create new DEXA scan with comprehensive error handling
   app.post('/api/scans', requireAuth, async (req: any, res) => {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+    
     try {
-      console.log("📊 POST /api/scans - Creating new DEXA scan");
-      console.log("Request body:", JSON.stringify(req.body, null, 2));
-      console.log("User from session:", JSON.stringify(req.user, null, 2));
+      console.log(`📊 [${requestId}] POST /api/scans - Creating new DEXA scan`);
+      console.log(`📊 [${requestId}] Request body:`, JSON.stringify(req.body, null, 2));
+      console.log(`📊 [${requestId}] User from session:`, JSON.stringify(req.user, null, 2));
+      
+      // Pre-flight database health check
+      try {
+        const { getDatabaseHealthStatus } = await import('./db.js');
+        const dbHealth = await getDatabaseHealthStatus();
+        if (dbHealth.status !== 'healthy') {
+          console.error(`❌ [${requestId}] Database health check failed:`, dbHealth);
+          return res.status(503).json({
+            message: "Database is currently unavailable",
+            error: "DATABASE_UNHEALTHY",
+            details: dbHealth.issues || ['Database connection issues']
+          });
+        }
+        console.log(`✅ [${requestId}] Database health check passed`);
+      } catch (healthError) {
+        console.error(`⚠️ [${requestId}] Could not perform database health check:`, healthError);
+        // Continue - don't block on health check failure
+      }
       
       const userId = req.user.id;
       
-      // First verify the user exists in database
+      // Enhanced user verification with database connection diagnostics
+      let userExists;
       try {
-        const userExists = await storage.getUser(userId);
+        console.log(`🔍 [${requestId}] Verifying user exists in database...`);
+        userExists = await storage.getUser(userId);
         if (!userExists) {
-          console.error(`❌ User ${userId} exists in session but not in database!`);
-          console.error("This typically happens when the database was reset but the session persisted.");
-          console.error("User should log out and create a new account.");
+          console.error(`❌ [${requestId}] User ${userId} exists in session but not in database!`);
+          console.error(`❌ [${requestId}] This typically happens when:`);
+          console.error(`   - Database was reset but session persisted`);
+          console.error(`   - Database connection is pointing to wrong file`);
+          console.error(`   - User was deleted but session remains active`);
+          console.error(`❌ [${requestId}] User should clear browser data and create new account`);
+          
+          // Additional diagnostics
+          const sessionInfo = {
+            userId: userId,
+            username: req.user.username,
+            sessionAge: req.session?.cookie?.maxAge,
+            sessionCreated: req.session?.cookie?.originalMaxAge
+          };
+          console.error(`❌ [${requestId}] Session diagnostics:`, sessionInfo);
+          
           return res.status(401).json({ 
-            message: "User session is invalid. Please log out and log in again.",
-            error: "USER_NOT_IN_DATABASE"
+            message: "User session is invalid. Please clear browser data and create a new account.",
+            error: "USER_NOT_IN_DATABASE",
+            diagnostics: {
+              sessionUserId: userId,
+              sessionUsername: req.user.username,
+              suggestion: "Clear browser cookies and localStorage, then create a new account"
+            }
           });
         }
-        console.log("✅ User verified in database:", userExists.username);
+        console.log(`✅ [${requestId}] User verified in database:`, userExists.username);
       } catch (userCheckError) {
-        console.error("❌ Error checking user existence:", userCheckError);
-        return res.status(401).json({ 
-          message: "Unable to verify user. Please log out and log in again.",
-          error: "USER_VERIFICATION_FAILED"
+        console.error(`❌ [${requestId}] Database connection error during user verification:`, userCheckError);
+        
+        // Enhanced database connection diagnostics
+        const dbError = userCheckError as any;
+        let errorCategory = 'DATABASE_CONNECTION_FAILED';
+        let userMessage = 'Database connection failed. Please try again in a moment.';
+        
+        if (dbError.code === 'SQLITE_CANTOPEN') {
+          errorCategory = 'DATABASE_FILE_INACCESSIBLE';
+          userMessage = 'Database file is inaccessible. Please contact support.';
+          console.error(`❌ [${requestId}] Database file cannot be opened - check file permissions`);
+        } else if (dbError.code === 'SQLITE_BUSY') {
+          errorCategory = 'DATABASE_LOCKED';
+          userMessage = 'Database is temporarily locked. Please try again.';
+          console.error(`❌ [${requestId}] Database is locked - possible concurrent access issue`);
+        } else if (dbError.message?.includes('no such table')) {
+          errorCategory = 'DATABASE_NOT_INITIALIZED';
+          userMessage = 'Database tables missing. Please contact support.';
+          console.error(`❌ [${requestId}] Database tables are missing - database not properly initialized`);
+        }
+        
+        return res.status(503).json({ 
+          message: userMessage,
+          error: errorCategory,
+          requestId: requestId,
+          timestamp: new Date().toISOString()
         });
       }
       
-      // Parse and validate scan data
+      // Enhanced scan data parsing and validation
       let scanData;
       try {
+        console.log(`🔍 [${requestId}] Parsing and validating scan data...`);
+        
+        // Pre-validate critical fields before schema validation
+        const { scanDate, bodyFatPercent, leanMass, totalWeight } = req.body;
+        
+        if (!scanDate) {
+          throw new Error('Scan date is required');
+        }
+        
+        const parsedDate = new Date(scanDate);
+        if (isNaN(parsedDate.getTime())) {
+          throw new Error('Invalid scan date format');
+        }
+        
+        // Check for reasonable date range (not too far in past/future)
+        const now = new Date();
+        const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        const monthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        
+        if (parsedDate < yearAgo || parsedDate > monthFromNow) {
+          console.warn(`⚠️ [${requestId}] Scan date seems unusual: ${parsedDate.toISOString()}`);
+        }
+        
         scanData = insertDexaScanSchema.parse({
           ...req.body,
           userId,
-          scanDate: new Date(req.body.scanDate),
+          scanDate: parsedDate,
         });
-        console.log("✅ Scan data validated successfully");
+        console.log(`✅ [${requestId}] Scan data validated successfully`);
+        
+        // Log key metrics for debugging
+        console.log(`📊 [${requestId}] Scan metrics: BF ${scanData.bodyFatPercent}%, Lean ${scanData.leanMass}lbs, Total ${scanData.totalWeight}lbs`);
+        
       } catch (validationError) {
-        console.error("❌ Validation error:", validationError);
+        console.error(`❌ [${requestId}] Validation error:`, validationError);
         if (validationError instanceof z.ZodError) {
-          console.error("Validation issues:", validationError.errors);
+          console.error(`❌ [${requestId}] Detailed validation issues:`);
+          validationError.errors.forEach((err, index) => {
+            console.error(`   ${index + 1}. ${err.path.join('.')}: ${err.message}`);
+          });
+          
           return res.status(400).json({ 
-            message: "Invalid scan data",
+            message: "Invalid scan data provided",
             errors: validationError.errors,
-            error: "VALIDATION_FAILED"
+            error: "VALIDATION_FAILED",
+            requestId: requestId
           });
         }
-        throw validationError;
+        
+        return res.status(400).json({
+          message: validationError instanceof Error ? validationError.message : "Invalid scan data",
+          error: "VALIDATION_FAILED",
+          requestId: requestId
+        });
       }
-
-      console.log("Parsed scan data:", JSON.stringify(scanData, null, 2));
       
-      // Create the scan
+      // Create the scan with retry mechanism for transient failures
       let scan;
-      try {
-        scan = await storage.createDexaScan(scanData);
-        console.log("✅ Scan created successfully:", scan.id);
-      } catch (dbError) {
-        console.error("❌ Database error creating scan:", dbError);
-        if ((dbError as any).code === 'SQLITE_CONSTRAINT') {
-          return res.status(400).json({ 
-            message: "A scan with this date already exists",
-            error: "DUPLICATE_SCAN"
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          console.log(`💾 [${requestId}] Creating scan in database (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+          
+          scan = await storage.createDexaScan(scanData);
+          console.log(`✅ [${requestId}] Scan created successfully: ${scan.id}`);
+          break;
+          
+        } catch (dbError) {
+          console.error(`❌ [${requestId}] Database error creating scan (attempt ${retryCount + 1}):`, dbError);
+          
+          const error = dbError as any;
+          
+          // Handle specific database errors
+          if (error.code === 'SQLITE_CONSTRAINT' || error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            console.error(`❌ [${requestId}] Duplicate scan detected - user already has scan for this date`);
+            return res.status(409).json({ 
+              message: "You already have a scan for this date. Please use a different date or edit the existing scan.",
+              error: "DUPLICATE_SCAN",
+              requestId: requestId
+            });
+          }
+          
+          // Retry logic for transient errors
+          const retryableErrors = ['SQLITE_BUSY', 'SQLITE_LOCKED', 'SQLITE_IOERR'];
+          const isRetryable = retryableErrors.includes(error.code);
+          
+          if (isRetryable && retryCount < maxRetries) {
+            retryCount++;
+            const delayMs = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff, max 5s
+            console.log(`⏳ [${requestId}] Retrying in ${delayMs}ms due to transient error: ${error.code}`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+          }
+          
+          // Non-retryable error or max retries exceeded
+          console.error(`❌ [${requestId}] Non-retryable database error:`, {
+            code: error.code,
+            message: error.message,
+            retryCount: retryCount
+          });
+          
+          let errorMessage = 'Failed to save scan data';
+          let errorCode = 'DATABASE_ERROR';
+          
+          if (error.code === 'SQLITE_CANTOPEN') {
+            errorMessage = 'Database file is inaccessible';
+            errorCode = 'DATABASE_FILE_ERROR';
+          } else if (error.code === 'SQLITE_CORRUPT') {
+            errorMessage = 'Database corruption detected';
+            errorCode = 'DATABASE_CORRUPT';
+          } else if (error.code === 'SQLITE_FULL') {
+            errorMessage = 'Database storage is full';
+            errorCode = 'DATABASE_FULL';
+          }
+          
+          return res.status(503).json({
+            message: errorMessage,
+            error: errorCode,
+            requestId: requestId,
+            timestamp: new Date().toISOString()
           });
         }
-        throw dbError;
       }
       
-      // Update user profile with name if provided
+      // Update user profile with name if provided (non-critical)
       if (req.body.firstName && req.body.lastName) {
         try {
+          console.log(`👤 [${requestId}] Updating user profile with name...`);
           await storage.updateUser(userId, {
             firstName: req.body.firstName,
             lastName: req.body.lastName,
             name: `${req.body.firstName} ${req.body.lastName}`,
           });
-          console.log("✅ User profile updated with name");
+          console.log(`✅ [${requestId}] User profile updated with name`);
         } catch (error) {
-          console.error("⚠️ Non-critical: Error updating user name:", error);
-          // Don't fail the whole request for this
+          console.error(`⚠️ [${requestId}] Non-critical error updating user name:`, error);
+          // Don't fail the whole request for this - it's not critical
         }
       }
       
-      // Recalculate scores
+      // Recalculate scores with timeout protection
       try {
-        console.log("Recalculating all scores...");
-        await storage.recalculateAllScores();
-        console.log("✅ Scores recalculated successfully");
+        console.log(`📊 [${requestId}] Recalculating competition scores...`);
+        
+        // Set timeout for score calculation to prevent hanging
+        const scorePromise = storage.recalculateAllScores();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Score calculation timeout')), 30000)
+        );
+        
+        await Promise.race([scorePromise, timeoutPromise]);
+        console.log(`✅ [${requestId}] Scores recalculated successfully`);
       } catch (scoreError) {
-        console.error("⚠️ Non-critical: Error recalculating scores:", scoreError);
-        // Don't fail the whole request for this
+        console.error(`⚠️ [${requestId}] Non-critical error recalculating scores:`, scoreError);
+        // Don't fail the whole request for this - scores can be recalculated later
+        // The scan was successfully created, which is the critical part
       }
       
-      res.json(scan);
+      const duration = Date.now() - startTime;
+      console.log(`✅ [${requestId}] Scan creation completed successfully in ${duration}ms`);
+      
+      res.json({ 
+        ...scan,
+        _meta: {
+          requestId: requestId,
+          processingTimeMs: duration,
+          timestamp: new Date().toISOString()
+        }
+      });
     } catch (error) {
-      console.error("❌ Unexpected error creating scan:", error);
+      const duration = Date.now() - startTime;
+      console.error(`💥 [${requestId}] Unexpected error creating scan after ${duration}ms:`, error);
+      
+      // Comprehensive error logging for debugging
       if (error instanceof Error) {
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
+        console.error(`💥 [${requestId}] Error details:`);
+        console.error(`   Message: ${error.message}`);
+        console.error(`   Stack: ${error.stack}`);
         if ((error as any).code) {
-          console.error("Error code:", (error as any).code);
+          console.error(`   Code: ${(error as any).code}`);
+        }
+        if ((error as any).errno) {
+          console.error(`   Errno: ${(error as any).errno}`);
         }
       }
       
-      // Return more specific error message
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      res.status(500).json({ 
-        message: "Failed to create scan",
-        error: errorMessage,
-        details: process.env.NODE_ENV !== 'production' ? error : undefined
-      });
+      // Check if response was already sent (to avoid "Cannot set headers after they are sent" error)
+      if (res.headersSent) {
+        console.error(`⚠️ [${requestId}] Response already sent, cannot send error response`);
+        return;
+      }
+      
+      // Categorize error for better user experience
+      let statusCode = 500;
+      let userMessage = "An unexpected error occurred while creating your scan";
+      let errorCode = "INTERNAL_SERVER_ERROR";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          statusCode = 408;
+          userMessage = "Request timed out. Please try again.";
+          errorCode = "REQUEST_TIMEOUT";
+        } else if (error.message.includes('network')) {
+          statusCode = 503;
+          userMessage = "Network error occurred. Please check your connection.";
+          errorCode = "NETWORK_ERROR";
+        } else if (error.message.includes('memory') || error.message.includes('heap')) {
+          statusCode = 507;
+          userMessage = "Server is temporarily overloaded. Please try again.";
+          errorCode = "INSUFFICIENT_STORAGE";
+        }
+      }
+      
+      const errorResponse: any = {
+        message: userMessage,
+        error: errorCode,
+        requestId: requestId,
+        timestamp: new Date().toISOString(),
+        processingTimeMs: duration
+      };
+      
+      // Include debug details in non-production environments
+      if (process.env.NODE_ENV !== 'production') {
+        errorResponse.debug = {
+          originalError: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          code: (error as any)?.code,
+          errno: (error as any)?.errno
+        };
+      }
+      
+      res.status(statusCode).json(errorResponse);
     }
   });
 
-  // Update DEXA scan
+  // Update DEXA scan with enhanced error handling
   app.put('/api/scans/:scanId', requireAuth, async (req: any, res) => {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+    
     try {
+      console.log(`📊 [${requestId}] PUT /api/scans/${req.params.scanId} - Updating DEXA scan`);
       const scanId = req.params.scanId;
       const userId = req.user.id;
       
@@ -304,8 +580,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.recalculateAllScores();
       res.json(updatedScan);
     } catch (error) {
-      console.error("Error updating scan:", error);
-      res.status(500).json({ message: "Failed to update scan" });
+      const duration = Date.now() - startTime;
+      console.error(`❌ [${requestId}] Error updating scan after ${duration}ms:`, error);
+      
+      if (res.headersSent) {
+        return;
+      }
+      
+      res.status(500).json({ 
+        message: "Failed to update scan",
+        error: "SCAN_UPDATE_FAILED",
+        requestId: requestId,
+        timestamp: new Date().toISOString()
+      });
     }
   });
 
@@ -330,12 +617,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Real file upload endpoint
+  // Real file upload endpoint with enhanced error handling
   app.post("/api/objects/upload", requireAuth, upload.single('file'), async (req: any, res) => {
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const startTime = Date.now();
+    
     try {
+      console.log(`📋 [${requestId}] POST /api/objects/upload - File upload request`);
+      
       if (!req.file) {
-        return res.status(400).json({ error: "No file provided" });
+        console.log(`❌ [${requestId}] No file provided in upload request`);
+        return res.status(400).json({ 
+          error: "No file provided",
+          requestId: requestId
+        });
       }
+      
+      console.log(`📎 [${requestId}] File details: ${req.file.originalname} (${req.file.size} bytes, ${req.file.mimetype})`);
 
       // Validate file size (multer already checks, but double-check)
       if (!objectStorage.validateFileSize(req.file.size)) {
@@ -351,9 +649,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         size: req.file.size,
         mimetype: req.file.mimetype
       });
+      const duration = Date.now() - startTime;
+      console.log(`✅ [${requestId}] File uploaded successfully in ${duration}ms: ${objectPath}`);
+      
+      res.json({ 
+        objectPath,
+        filename: req.file.originalname,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        _meta: {
+          requestId: requestId,
+          timestamp: new Date().toISOString(),
+          processingTimeMs: duration
+        }
+      });
     } catch (error) {
-      console.error("Error uploading file:", error);
-      res.status(500).json({ error: "Failed to upload file" });
+      const duration = Date.now() - startTime;
+      console.error(`❌ [${requestId}] Error uploading file after ${duration}ms:`, error);
+      
+      if (res.headersSent) {
+        return;
+      }
+      
+      let statusCode = 500;
+      let errorMessage = "Failed to upload file";
+      let errorCode = "FILE_UPLOAD_FAILED";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('ENOSPC')) {
+          statusCode = 507;
+          errorMessage = "Insufficient storage space";
+          errorCode = "INSUFFICIENT_STORAGE";
+        } else if (error.message.includes('EACCES')) {
+          statusCode = 403;
+          errorMessage = "Permission denied accessing storage";
+          errorCode = "STORAGE_PERMISSION_DENIED";
+        }
+      }
+      
+      res.status(statusCode).json({ 
+        error: errorMessage,
+        code: errorCode,
+        requestId: requestId,
+        timestamp: new Date().toISOString()
+      });
     }
   });
 

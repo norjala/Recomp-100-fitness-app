@@ -255,13 +255,20 @@ export function getAdminUsernames(): string[] {
 
 export function getDatabasePath(): string {
   const config = getConfig();
+  const dbUrl = config.DATABASE_URL;
 
-  // Convert relative paths to absolute
-  if (config.DATABASE_URL.startsWith("./")) {
-    return path.resolve(process.cwd(), config.DATABASE_URL);
+  // If it's already an absolute path, return as-is
+  if (path.isAbsolute(dbUrl)) {
+    return dbUrl;
   }
 
-  return config.DATABASE_URL;
+  // If it starts with ./ or ../, resolve relative to process.cwd()
+  if (dbUrl.startsWith("./") || dbUrl.startsWith("../")) {
+    return path.resolve(process.cwd(), dbUrl);
+  }
+
+  // If it's just a filename or relative path without ./, resolve relative to process.cwd()
+  return path.resolve(process.cwd(), dbUrl);
 }
 
 export function getCompetitionDates(): { start: Date; end: Date } {

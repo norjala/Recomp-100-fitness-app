@@ -2,24 +2,141 @@ services:
   - type: web
     name: recomp-100-fitness-app
     runtime: node
+    plan: free  # Specify the plan explicitly
     buildCommand: npm run build
     startCommand: npm start
-    healthCheckPath: /health
     
-    # Environment configuration
+    # Health checks to verify application and database status
+    healthCheckPath: /api/health
+    # Custom health check configuration
+    healthCheckConfig:
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 3
+      successThreshold: 1
+    
+    # Environment configuration - CRITICAL FOR DATA PERSISTENCE
     envVars:
+      # === CORE APPLICATION SETTINGS ===
       - key: NODE_ENV
         value: production
+      
+      # === DATABASE & PERSISTENCE (CRITICAL) ===
+      # These MUST use /opt/render/persistent for data to survive deployments
       - key: DATABASE_URL
         value: /opt/render/persistent/data/fitness_challenge.db
       - key: UPLOADS_DIR
         value: /opt/render/persistent/uploads
+      
+      # === SECURITY ===
+      # Generate with: openssl rand -hex 32
+      - key: SESSION_SECRET
+        generateValue: true  # Let Render generate a secure secret
+      
+      # === ADMIN ACCESS ===
+      - key: ADMIN_USERNAMES
+        value: Jaron
+      
+      # === COMPETITION CONFIGURATION ===
+      - key: COMPETITION_START_DATE
+        value: "2025-08-04T00:00:00.000Z"
+      - key: COMPETITION_END_DATE
+        value: "2025-11-26T23:59:59.999Z"
+      
+      # === OPENAI INTEGRATION ===
+      # Set this in Render Dashboard manually for security
+      # - key: OPENAI_API_KEY
+      #   value: YOUR_API_KEY_HERE
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      
+      # === PERFORMANCE & SECURITY ===
+      - key: RATE_LIMIT_REQUESTS_PER_MINUTE
+        value: "50"
+      - key: FORCE_HTTPS
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "https://recomp-100-fitness-app.onrender.com"
+      
+      # === FILE UPLOAD SETTINGS ===
+      - key: MAX_FILE_SIZE
+        value: "52428800"  # 50MB
+      - key: ALLOWED_FILE_TYPES
+        value: "image/jpeg,image/png,image/gif,application/pdf"
+      
+      # === LOGGING ===
+      - key: LOG_LEVEL
+        value: "info"
+      - key: LOG_FORMAT
+        value: "json"
+      - key: ENABLE_REQUEST_LOGGING
+        value: "true"
+      
+      # === BACKUP SETTINGS ===
+      - key: BACKUP_FREQUENCY_HOURS
+        value: "24"
+      - key: BACKUP_RETENTION_COUNT
+        value: "7"
+      - key: BACKUP_PATH
+        value: "/opt/render/persistent/backups"
     
-    # Persistent disk for database and uploads ONLY (not entire project)
+    # CRITICAL: Persistent disk for database and uploads
+    # This directory survives deployments and restarts
     disk:
       name: fitness-app-storage
       mountPath: /opt/render/persistent
-      sizeGB: 1
+      sizeGB: 2  # Increased from 1GB for more storage
+    
+    # Resource allocation
+    scaling:
+      minInstances: 1
+      maxInstances: 1  # Free tier limitation
+    
+    # Auto-deploy settings
+    autoDeploy: true
+    
+    # Build settings
+    buildFilter:
+      paths:
+        - "server/**"
+        - "client/**" 
+        - "shared/**"
+        - "scripts/**"
+        - "package.json"
+        - "package-lock.json"
+        - "tsconfig*.json"
+        - "vite.config.ts"
+        - "render.yaml"
+      ignoredPaths:
+        - "README.md"
+        - "*.md"
+        - ".git/**"
+        - "node_modules/**"
 
-# Database and file storage will be on persistent disk at /opt/render/persistent
-# This ensures data survives deployments
+# === RENDER DEPLOYMENT NOTES ===
+# 
+# CRITICAL SETUP STEPS:
+# 1. The persistent disk will be mounted at /opt/render/persistent
+# 2. Database and uploads will be stored in persistent storage
+# 3. Data will survive all deployments and restarts
+# 
+# MANUAL STEPS REQUIRED IN RENDER DASHBOARD:
+# 1. Set OPENAI_API_KEY in Environment tab (for security)
+# 2. Verify all environment variables are set correctly
+# 3. Check that persistent disk is properly mounted
+# 
+# HEALTH CHECK VERIFICATION:
+# - Application health: https://your-app.onrender.com/health
+# - Detailed health: https://your-app.onrender.com/api/health
+# - The detailed health check will show:
+#   * Database connection status
+#   * User and scan counts (verifies persistence)
+#   * File storage status
+#   * Memory and system info
+#   * Competition status
+# 
+# TROUBLESHOOTING:
+# - If data is lost after deployment: Check DATABASE_URL path
+# - If 500 errors on scan save: Clear browser data and create new account
+# - If app won't start: Check Render logs for environment variable issues

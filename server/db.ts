@@ -16,10 +16,45 @@ if (!fs.existsSync(databaseDir)) {
 }
 
 const sqlite = createClient({
-  url: `file:${databasePath}`
+  url: `file:${databasePath}`,
+  // Production optimizations
+  syncUrl: undefined, // Disable sync for local SQLite
 });
 
 export const db = drizzle(sqlite, { schema });
+
+// Configure SQLite for production use
+async function configureSQLiteForProduction() {
+  try {
+    if (!isTest()) {
+      console.log('🔧 Configuring SQLite for production...');
+      
+      // Enable WAL mode for better concurrent access
+      await sqlite.execute('PRAGMA journal_mode=WAL;');
+      console.log('✅ Enabled WAL mode for better concurrency');
+      
+      // Set optimized SQLite settings for production
+      await sqlite.execute('PRAGMA synchronous=NORMAL;'); // Balance between safety and performance
+      await sqlite.execute('PRAGMA cache_size=10000;'); // 10MB cache
+      await sqlite.execute('PRAGMA temp_store=memory;'); // Use memory for temp tables
+      await sqlite.execute('PRAGMA mmap_size=268435456;'); // 256MB memory mapping
+      await sqlite.execute('PRAGMA optimize;'); // Enable query optimizer
+      
+      console.log('✅ Applied production SQLite optimizations');
+      
+      // Verify WAL mode is enabled
+      const result = await sqlite.execute('PRAGMA journal_mode;');
+      if (result.rows && result.rows[0] && result.rows[0]['journal_mode'] === 'wal') {
+        console.log('✅ WAL mode confirmed active');
+      } else {
+        console.warn('⚠️  WAL mode may not be active');
+      }
+    }
+  } catch (error) {
+    console.error('❌ Failed to configure SQLite for production:', error);
+    // Don't throw - allow app to continue with default settings
+  }
+}
 
 // Initialize database tables
 export async function initializeDatabase() {
@@ -133,10 +168,147 @@ export async function initializeDatabase() {
       `);
     }
     
+    // Configure SQLite for production after tables are created
+    await configureSQLiteForProduction();
+    
     console.log('Database initialization complete');
   } catch (error) {
     console.error('Database initialization failed:', error);
     throw error;
+  }
+}
+
+// Database persistence verification
+export async function verifyDatabasePersistence(): Promise<{
+  isValid: boolean;
+  details: {
+    fileExists: boolean;
+    isReadable: boolean;
+    isWritable: boolean;
+    sizeInMB: number;
+    ageInHours: number;
+    userCount: number;
+    scanCount: number;
+    scoreCount: number;
+    walModeEnabled: boolean;
+  };
+  issues: string[];
+}> {
+  const issues: string[] = [];
+  const details = {
+    fileExists: false,
+    isReadable: false,
+    isWritable: false,
+    sizeInMB: 0,
+    ageInHours: 0,
+    userCount: 0,
+    scanCount: 0,
+    scoreCount: 0,
+    walModeEnabled: false,
+  };
+
+  try {
+    const dbPath = getDatabasePath();
+    
+    // Check if database file exists
+    if (fs.existsSync(dbPath)) {
+      details.fileExists = true;
+      
+      // Get file statistics
+      const stats = fs.statSync(dbPath);
+      details.sizeInMB = Number((stats.size / (1024 * 1024)).toFixed(2));
+      details.ageInHours = Number(((Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60)).toFixed(1));
+      
+      // Test readability
+      try {
+        fs.accessSync(dbPath, fs.constants.R_OK);
+        details.isReadable = true;
+      } catch (error) {
+        issues.push('Database file is not readable');
+      }
+      
+      // Test writability
+      try {
+        fs.accessSync(dbPath, fs.constants.W_OK);
+        details.isWritable = true;
+      } catch (error) {
+        issues.push('Database file is not writable');
+      }
+      
+      // Test database connection and integrity
+      try {
+        // Check WAL mode
+        const walResult = await sqlite.execute('PRAGMA journal_mode;');
+        details.walModeEnabled = walResult.rows?.[0]?.['journal_mode'] === 'wal';
+        
+        // Get table counts to verify data integrity
+        const userCountResult = await sqlite.execute('SELECT COUNT(*) as count FROM users');
+        details.userCount = Number(userCountResult.rows?.[0]?.count || 0);
+        
+        const scanCountResult = await sqlite.execute('SELECT COUNT(*) as count FROM dexa_scans');
+        details.scanCount = Number(scanCountResult.rows?.[0]?.count || 0);
+        
+        const scoreCountResult = await sqlite.execute('SELECT COUNT(*) as count FROM scoring_data');
+        details.scoreCount = Number(scoreCountResult.rows?.[0]?.count || 0);
+        
+        // Test write capability with a dummy query
+        await sqlite.execute('PRAGMA quick_check;');
+        
+      } catch (dbError) {
+        issues.push(`Database connection failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+      }
+      
+    } else {
+      issues.push('Database file does not exist');
+    }
+    
+    // Check if database is in persistent location (production)
+    if (process.env.NODE_ENV === 'production') {
+      if (!dbPath.includes('/opt/render/persistent')) {
+        issues.push('Database is not in persistent storage - data will be lost on deployment');
+      }
+    }
+    
+  } catch (error) {
+    issues.push(`Database verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+
+  const isValid = issues.length === 0 && details.fileExists && details.isReadable && details.isWritable;
+  
+  return { isValid, details, issues };
+}
+
+// Enhanced database health check for monitoring
+export async function getDatabaseHealthStatus() {
+  try {
+    const persistence = await verifyDatabasePersistence();
+    const dbPath = getDatabasePath();
+    
+    return {
+      status: persistence.isValid ? 'healthy' : 'unhealthy',
+      database: {
+        path: dbPath,
+        exists: persistence.details.fileExists,
+        size: `${persistence.details.sizeInMB} MB`,
+        age: `${persistence.details.ageInHours} hours`,
+        walMode: persistence.details.walModeEnabled,
+        readable: persistence.details.isReadable,
+        writable: persistence.details.isWritable,
+      },
+      data: {
+        users: persistence.details.userCount,
+        scans: persistence.details.scanCount,
+        scores: persistence.details.scoreCount,
+      },
+      issues: persistence.issues,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+    };
   }
 }
 

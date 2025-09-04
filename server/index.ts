@@ -85,27 +85,16 @@ app.use((req, res, next) => {
           version: process.env.npm_package_version || '1.0.0'
         };
 
-        // Test database connection and get metrics
-        const { db } = await import('./db.js');
-        const { users, dexaScans, scoringData } = await import('../shared/schema.js');
+        // Enhanced database health check with persistence verification
+        const { getDatabaseHealthStatus } = await import('./db.js');
         
         try {
-          const userCountResult = await db.select().from(users);
-          const scanCountResult = await db.select().from(dexaScans);
-          const scoringCountResult = await db.select().from(scoringData);
-          
-          healthChecks.database = {
-            status: 'connected',
-            path: config.DATABASE_URL,
-            users: userCountResult.length,
-            scans: scanCountResult.length,
-            scores: scoringCountResult.length
-          };
+          healthChecks.database = await getDatabaseHealthStatus();
         } catch (dbError) {
           healthChecks.database = {
             status: 'error',
             path: config.DATABASE_URL,
-            error: dbError instanceof Error ? dbError.message : 'Database connection failed'
+            error: dbError instanceof Error ? dbError.message : 'Database health check failed'
           };
         }
 
