@@ -3,7 +3,7 @@
 ## Overview
 A 100-day body recomposition competition platform where users track DEXA scan progress, compete for body fat loss and muscle gain improvements, and view leaderboards.
 
-**Challenge Period**: August 4, 2025 - November 14, 2025 (102 days)
+**Challenge Period**: August 4, 2025 - November 26, 2025 (114 days)
 
 ## Features
 - **DEXA Scan Upload**: Manual data entry with optional image/PDF upload and AI extraction
@@ -228,7 +228,7 @@ ADMIN_USERNAMES=Jaron,AdminUser2,AdminUser3
 
 # Competition Dates
 COMPETITION_START_DATE=2025-08-04T00:00:00.000Z
-COMPETITION_END_DATE=2025-11-14T23:59:59.999Z
+COMPETITION_END_DATE=2025-11-26T23:59:59.999Z
 ```
 
 **Optional Configuration:**

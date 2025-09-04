@@ -157,6 +157,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new DEXA scan
   app.post('/api/scans', requireAuth, async (req: any, res) => {
     try {
+      console.log("📊 POST /api/scans - Creating new DEXA scan");
+      console.log("Request body:", JSON.stringify(req.body, null, 2));
+      console.log("User ID:", req.user.id);
+      
       const userId = req.user.id;
       const scanData = insertDexaScanSchema.parse({
         ...req.body,
@@ -164,7 +168,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scanDate: new Date(req.body.scanDate),
       });
 
+      console.log("Parsed scan data:", JSON.stringify(scanData, null, 2));
+      
       const scan = await storage.createDexaScan(scanData);
+      console.log("Scan created successfully:", scan.id);
       
       // Update user profile with name if provided
       if (req.body.firstName && req.body.lastName) {
@@ -174,17 +181,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastName: req.body.lastName,
             name: `${req.body.firstName} ${req.body.lastName}`,
           });
+          console.log("User profile updated with name");
         } catch (error) {
           console.error("Error updating user name:", error);
         }
       }
       
       // Recalculate scores
+      console.log("Recalculating all scores...");
       await storage.recalculateAllScores();
+      console.log("Scores recalculated successfully");
       
       res.json(scan);
     } catch (error) {
-      console.error("Error creating scan:", error);
+      console.error("❌ Error creating scan:", error);
+      if (error instanceof Error) {
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+        if ((error as any).code) {
+          console.error("Error code:", (error as any).code);
+        }
+      }
       res.status(500).json({ message: "Failed to create scan" });
     }
   });
