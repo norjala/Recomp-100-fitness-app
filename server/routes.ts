@@ -136,15 +136,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const duration = Date.now() - startTime;
       console.log(`✅ [${requestId}] Leaderboard fetched successfully in ${duration}ms (${leaderboard.length} contestants)`);
       
-      res.json({
-        ...leaderboard,
-        _meta: {
-          requestId: requestId,
-          timestamp: new Date().toISOString(),
-          processingTimeMs: duration,
-          totalContestants: Array.isArray(leaderboard) ? leaderboard.length : 0
-        }
-      });
+      // Return leaderboard as an array directly (not spread into an object)
+      res.json(leaderboard);
     } catch (error) {
       const duration = Date.now() - startTime;
       console.error(`❌ [${requestId}] Error fetching leaderboard after ${duration}ms:`, error);
