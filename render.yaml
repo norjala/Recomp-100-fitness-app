@@ -3,7 +3,7 @@ services:
     name: recomp-100-fitness-app
     runtime: node
     buildCommand: npm run build
-    startCommand: node dist/server/index.js
+    startCommand: npm start
     healthCheckPath: /health
     
     # Environment configuration
@@ -11,14 +11,15 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        value: /opt/render/project/data/fitness_challenge.db
+        value: /opt/render/persistent/data/fitness_challenge.db
       - key: UPLOADS_DIR
-        value: /opt/render/project/uploads
+        value: /opt/render/persistent/uploads
     
-    # Persistent disk for database and uploads
+    # Persistent disk for database and uploads ONLY (not entire project)
     disk:
       name: fitness-app-storage
-      mountPath: /opt/render/project
+      mountPath: /opt/render/persistent
       sizeGB: 1
 
-# Database and file storage will be on persistent disk
+# Database and file storage will be on persistent disk at /opt/render/persistent
+# This ensures data survives deployments

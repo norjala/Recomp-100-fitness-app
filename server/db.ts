@@ -26,6 +26,39 @@ export async function initializeDatabase() {
   try {
     if (!isTest()) {
       console.log(`Initializing database at: ${databasePath}`);
+      
+      // Check if database file exists and has content
+      if (fs.existsSync(databasePath)) {
+        const stats = fs.statSync(databasePath);
+        const sizeInMB = (stats.size / (1024 * 1024)).toFixed(2);
+        
+        if (stats.size > 0) {
+          console.log(`✅ Using existing database (${sizeInMB} MB)`);
+          
+          // Check if tables exist
+          try {
+            const result = await sqlite.execute(`
+              SELECT name FROM sqlite_master 
+              WHERE type='table' AND name IN ('users', 'dexa_scans', 'scoring_data')
+            `);
+            
+            if (result.rows && result.rows.length > 0) {
+              console.log(`✅ Found existing tables: ${result.rows.map(r => r.name).join(', ')}`);
+              
+              // Get user count
+              const userCount = await sqlite.execute(`SELECT COUNT(*) as count FROM users`);
+              const scanCount = await sqlite.execute(`SELECT COUNT(*) as count FROM dexa_scans`);
+              console.log(`📊 Database contains ${userCount.rows[0].count} users and ${scanCount.rows[0].count} scans`);
+            }
+          } catch (e) {
+            console.log('📝 Tables will be created if they don\'t exist');
+          }
+        } else {
+          console.log('📝 Database file exists but is empty - will initialize tables');
+        }
+      } else {
+        console.log('📝 Creating new database file');
+      }
     }
     
     // Check if migrations directory exists, if not create tables directly
@@ -37,7 +70,7 @@ export async function initializeDatabase() {
       migrate(db, { migrationsFolder: migrationsPath });
     } else {
       // Create tables directly from schema
-      console.log('Creating tables directly from schema...');
+      console.log('Ensuring tables exist (CREATE TABLE IF NOT EXISTS)...');
       
       // Create tables using raw SQL since Drizzle doesn't auto-create in SQLite
       await sqlite.execute(`
