@@ -19,6 +19,7 @@
     "clean:deps": "rm -rf node_modules",
     "clean:all": "npm run clean && npm install",
     "rebuild": "npm run clean:build && npm run build",
+    "build:analyze": "npm run build && echo '=== Build Analysis ===' && ls -la dist/public/assets/ && echo '=== Forms Chunk Check ===' && ls dist/public/assets/forms-* 2>/dev/null || echo 'WARNING: No forms chunk found!'",
     "preview": "npm run build && npm run start",
     "test": "npm run test:backend && npm run test:frontend",
     "test:backend": "jest --config jest.config.js",
