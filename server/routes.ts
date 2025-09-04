@@ -159,19 +159,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("📊 POST /api/scans - Creating new DEXA scan");
       console.log("Request body:", JSON.stringify(req.body, null, 2));
-      console.log("User ID:", req.user.id);
+      console.log("User from session:", JSON.stringify(req.user, null, 2));
       
       const userId = req.user.id;
-      const scanData = insertDexaScanSchema.parse({
-        ...req.body,
-        userId,
-        scanDate: new Date(req.body.scanDate),
-      });
+      
+      // First verify the user exists in database
+      try {
+        const userExists = await storage.getUser(userId);
+        if (!userExists) {
+          console.error(`❌ User ${userId} exists in session but not in database!`);
+          console.error("This typically happens when the database was reset but the session persisted.");
+          console.error("User should log out and create a new account.");
+          return res.status(401).json({ 
+            message: "User session is invalid. Please log out and log in again.",
+            error: "USER_NOT_IN_DATABASE"
+          });
+        }
+        console.log("✅ User verified in database:", userExists.username);
+      } catch (userCheckError) {
+        console.error("❌ Error checking user existence:", userCheckError);
+        return res.status(401).json({ 
+          message: "Unable to verify user. Please log out and log in again.",
+          error: "USER_VERIFICATION_FAILED"
+        });
+      }
+      
+      // Parse and validate scan data
+      let scanData;
+      try {
+        scanData = insertDexaScanSchema.parse({
+          ...req.body,
+          userId,
+          scanDate: new Date(req.body.scanDate),
+        });
+        console.log("✅ Scan data validated successfully");
+      } catch (validationError) {
+        console.error("❌ Validation error:", validationError);
+        if (validationError instanceof z.ZodError) {
+          console.error("Validation issues:", validationError.errors);
+          return res.status(400).json({ 
+            message: "Invalid scan data",
+            errors: validationError.errors,
+            error: "VALIDATION_FAILED"
+          });
+        }
+        throw validationError;
+      }
 
       console.log("Parsed scan data:", JSON.stringify(scanData, null, 2));
       
-      const scan = await storage.createDexaScan(scanData);
-      console.log("Scan created successfully:", scan.id);
+      // Create the scan
+      let scan;
+      try {
+        scan = await storage.createDexaScan(scanData);
+        console.log("✅ Scan created successfully:", scan.id);
+      } catch (dbError) {
+        console.error("❌ Database error creating scan:", dbError);
+        if ((dbError as any).code === 'SQLITE_CONSTRAINT') {
+          return res.status(400).json({ 
+            message: "A scan with this date already exists",
+            error: "DUPLICATE_SCAN"
+          });
+        }
+        throw dbError;
+      }
       
       // Update user profile with name if provided
       if (req.body.firstName && req.body.lastName) {
@@ -181,20 +232,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastName: req.body.lastName,
             name: `${req.body.firstName} ${req.body.lastName}`,
           });
-          console.log("User profile updated with name");
+          console.log("✅ User profile updated with name");
         } catch (error) {
-          console.error("Error updating user name:", error);
+          console.error("⚠️ Non-critical: Error updating user name:", error);
+          // Don't fail the whole request for this
         }
       }
       
       // Recalculate scores
-      console.log("Recalculating all scores...");
-      await storage.recalculateAllScores();
-      console.log("Scores recalculated successfully");
+      try {
+        console.log("Recalculating all scores...");
+        await storage.recalculateAllScores();
+        console.log("✅ Scores recalculated successfully");
+      } catch (scoreError) {
+        console.error("⚠️ Non-critical: Error recalculating scores:", scoreError);
+        // Don't fail the whole request for this
+      }
       
       res.json(scan);
     } catch (error) {
-      console.error("❌ Error creating scan:", error);
+      console.error("❌ Unexpected error creating scan:", error);
       if (error instanceof Error) {
         console.error("Error message:", error.message);
         console.error("Error stack:", error.stack);
@@ -202,7 +259,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("Error code:", (error as any).code);
         }
       }
-      res.status(500).json({ message: "Failed to create scan" });
+      
+      // Return more specific error message
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ 
+        message: "Failed to create scan",
+        error: errorMessage,
+        details: process.env.NODE_ENV !== 'production' ? error : undefined
+      });
     }
   });
 
