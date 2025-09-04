@@ -244,7 +244,7 @@ export default function Profile() {
               <div className="mt-2 flex flex-col md:flex-row md:items-center md:space-x-4 text-xs md:text-sm text-gray-500 space-y-1 md:space-y-0">
                 <span>Height: {user.height || 'Not specified'}</span>
                 <span>Weight: {user.startingWeight || '--'} lbs</span>
-                <span className="hidden md:inline">Joined: {formatDate(user.createdAt)}</span>
+                <span className="hidden md:inline">Joined: {user.createdAt ? formatDate(user.createdAt) : 'Unknown'}</span>
               </div>
             </div>
           </div>
@@ -571,7 +571,7 @@ export default function Profile() {
                     </div>
                     <FormControl>
                       <Switch
-                        checked={field.value}
+                        checked={field.value || false}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
