@@ -19,30 +19,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000, // Increase chunk size limit
     rollupOptions: {
       output: {
-        // Smart chunking that respects React Hook Form dependencies
-        manualChunks(id) {
-          // Keep React core together
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
-            return 'react-vendor';
-          }
-          
-          // Keep form-related libraries together to prevent cross-chunk issues
-          if (id.includes('react-hook-form') || 
-              id.includes('@hookform/resolvers') || 
-              id.includes('zod')) {
-            return 'forms';
-          }
-          
-          // Safe UI libraries (no form dependencies)
-          if (id.includes('@radix-ui/') && !id.includes('form')) {
-            return 'ui-vendor';
-          }
-          
-          // Node modules vendor chunk for other libraries
-          if (id.includes('node_modules/')) {
-            return 'vendor';
-          }
-        },
+        // EMERGENCY: Single chunk to fix module loading order issues
+        // This temporarily disables chunking to restore app functionality
+        manualChunks: undefined,
       },
     },
   },
