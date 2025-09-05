@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { ScanClassificationWarning } from "@/components/scan-classification-warning";
 import { Upload as UploadIcon, CloudUpload, Save } from "lucide-react";
 import { type DexaScan } from "@shared/schema";
 import { z } from "zod";
@@ -545,6 +546,14 @@ export default function Upload() {
                     required
                   />
                 </div>
+                
+                {/* Competition Date Validation Warning */}
+                {formData.scanDate && (
+                  <ScanClassificationWarning 
+                    scanDate={new Date(formData.scanDate)} 
+                    className="mt-2"
+                  />
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

@@ -2,6 +2,7 @@ import {
   users,
   dexaScans,
   scoringData,
+  scoringRanges,
   type User,
   type InsertUser,
   type RegisterUser,
@@ -9,12 +10,16 @@ import {
   type InsertDexaScan,
   type ScoringData,
   type InsertScoringData,
+  type ScoringRanges,
+  type InsertScoringRanges,
   type UserWithStats,
   type LeaderboardEntry,
   type ContestantEntry,
 } from "../shared/schema.js";
 import { db } from "./db.js";
-import { eq, desc, asc, and, isNull, isNotNull, ne, gt } from "drizzle-orm";
+import { eq, desc, asc, and, isNull, isNotNull, ne, gt, sql } from "drizzle-orm";
+import type { ScoringRange } from "../shared/scoring-utils.js";
+import { classifyScanDate } from "../shared/competition-config.js";
 
 export interface IStorage {
   // User operations for username/password auth
@@ -41,9 +46,14 @@ export interface IStorage {
   // Scoring operations
   upsertScoringData(data: InsertScoringData): Promise<ScoringData>;
   getScoringData(userId: string): Promise<ScoringData | undefined>;
+  getAllScoringData(): Promise<ScoringData[]>;
   getLeaderboard(): Promise<LeaderboardEntry[]>;
   getContestants(): Promise<ContestantEntry[]>;
   recalculateAllScores(): Promise<void>;
+  
+  // Scoring ranges for normalization
+  getScoringRanges(): Promise<ScoringRanges | null>;
+  updateScoringRanges(ranges: ScoringRange): Promise<ScoringRanges>;
   
   // Admin operations
   getAllUsers(): Promise<User[]>;
@@ -144,54 +154,83 @@ export class DatabaseStorage implements IStorage {
 
   // DEXA scan operations
   async createDexaScan(scanData: InsertDexaScan): Promise<DexaScan> {
-    const [scan] = await db.insert(dexaScans).values(scanData).returning();
+    // Classify scan based on date if not explicitly provided
+    const scanDate = scanData.scanDate instanceof Date ? scanData.scanDate : new Date(scanData.scanDate);
+    const classification = classifyScanDate(scanDate);
     
-    // Auto-manage baseline scan: mark earliest scan as baseline when user has ≥2 scans
+    // Apply automatic classification if not explicitly set
+    const enrichedScanData = {
+      ...scanData,
+      isCompetitionEligible: scanData.isCompetitionEligible ?? classification.isCompetitionEligible,
+      scanCategory: scanData.scanCategory ?? classification.category,
+      // Don't auto-set competitionRole - let baseline management handle it
+    };
+
+    console.log(`📅 Creating scan for ${scanDate.toLocaleDateString()}:`, {
+      category: enrichedScanData.scanCategory,
+      isCompetitionEligible: enrichedScanData.isCompetitionEligible,
+      warningType: classification.warningType,
+      message: classification.message
+    });
+
+    const [scan] = await db.insert(dexaScans).values(enrichedScanData).returning();
+    
+    // Auto-manage baseline scan: mark earliest competition-eligible scan as baseline
     await this.autoManageBaselineScan(scanData.userId);
     
-    // Recalculate scores after new scan
-    await this.calculateAndUpdateUserScore(scanData.userId);
+    // Recalculate scores after new scan (only for competition-eligible scans)
+    if (enrichedScanData.isCompetitionEligible) {
+      await this.calculateAndUpdateUserScore(scanData.userId);
+    }
     
     return scan;
   }
 
   private async autoManageBaselineScan(userId: string): Promise<void> {
-    // Get all scans for this user ordered by scan date
-    const allScans = await db
+    // Get all competition-eligible scans for this user ordered by scan date
+    const competitionScans = await db
       .select()
       .from(dexaScans)
-      .where(eq(dexaScans.userId, userId))
+      .where(and(
+        eq(dexaScans.userId, userId),
+        eq(dexaScans.isCompetitionEligible, true)
+      ))
       .orderBy(asc(dexaScans.scanDate));
 
-    // Mark baseline for any user with scans
-    if (allScans.length < 1) {
+    // Mark baseline for any user with competition-eligible scans
+    if (competitionScans.length < 1) {
+      console.log(`User ${userId} has no competition-eligible scans for baseline assignment`);
       return;
     }
 
-    // Find current baseline scans
-    const currentBaselines = allScans.filter(scan => scan.isBaseline);
-    const earliestScan = allScans[0];
+    // Find current baseline scans (only among competition-eligible)
+    const currentBaselines = competitionScans.filter(scan => scan.isBaseline);
+    const earliestCompetitionScan = competitionScans[0];
 
-    // If no baseline exists, or if earliest scan is not marked as baseline
-    if (currentBaselines.length === 0 || !earliestScan.isBaseline) {
-      // First, unmark all current baselines
-      if (currentBaselines.length > 0) {
-        await db
-          .update(dexaScans)
-          .set({ isBaseline: false })
-          .where(and(
-            eq(dexaScans.userId, userId),
-            eq(dexaScans.isBaseline, true)
-          ));
-      }
-
-      // Then mark the earliest scan as baseline
+    // If no baseline exists, or if earliest competition scan is not marked as baseline
+    if (currentBaselines.length === 0 || !earliestCompetitionScan.isBaseline) {
+      // First, unmark all current baselines for this user
       await db
         .update(dexaScans)
-        .set({ isBaseline: true })
-        .where(eq(dexaScans.id, earliestScan.id));
+        .set({ 
+          isBaseline: false,
+          competitionRole: null
+        })
+        .where(and(
+          eq(dexaScans.userId, userId),
+          eq(dexaScans.isBaseline, true)
+        ));
+
+      // Then mark the earliest competition-eligible scan as baseline
+      await db
+        .update(dexaScans)
+        .set({ 
+          isBaseline: true,
+          competitionRole: 'baseline'
+        })
+        .where(eq(dexaScans.id, earliestCompetitionScan.id));
       
-      console.log(`Auto-marked earliest scan (${earliestScan.scanDate}) as baseline for user ${userId}`);
+      console.log(`Auto-marked earliest competition scan (${earliestCompetitionScan.scanDate}) as baseline for user ${userId}`);
     }
   }
 
@@ -495,6 +534,13 @@ export class DatabaseStorage implements IStorage {
     // Require at least 2 scans: baseline + at least one more scan
     if (allScans.length < 2) {
       console.log(`User ${userId} needs at least 2 DEXA scans for competition scoring (has ${allScans.length})`);
+      
+      // Clear any existing scoring data since user no longer qualifies for competition scoring
+      const existingScore = await this.getScoringData(userId);
+      if (existingScore) {
+        console.log(`Clearing stale scoring data for user ${userId} (insufficient scans)`);
+        await db.delete(scoringData).where(eq(scoringData.userId, userId));
+      }
       return;
     }
 
@@ -569,7 +615,7 @@ export class DatabaseStorage implements IStorage {
     if (leanMassChange <= 0) return 0; // No muscle gain
 
     const genderMultiplier = gender === "female" ? 2.0 : 1.0;
-    return leanMassChange * 100 * 17 * genderMultiplier;
+    return leanMassChange * 17 * genderMultiplier;
   }
 
   private getLeanessMultiplier(gender: string, bodyFatPercent: number): number {
@@ -700,6 +746,55 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
 
     return result || null;
+  }
+
+  async getAllScoringData(): Promise<ScoringData[]> {
+    return await db
+      .select()
+      .from(scoringData);
+  }
+
+  async getScoringRanges(): Promise<ScoringRanges | null> {
+    const [ranges] = await db
+      .select()
+      .from(scoringRanges)
+      .where(eq(scoringRanges.competitionId, 'recomp100_2025'))
+      .orderBy(desc(scoringRanges.lastUpdated))
+      .limit(1);
+    
+    return ranges || null;
+  }
+
+  async updateScoringRanges(ranges: ScoringRange): Promise<ScoringRanges> {
+    // Delete existing ranges for this competition
+    await db
+      .delete(scoringRanges)
+      .where(eq(scoringRanges.competitionId, 'recomp100_2025'));
+    
+    // Insert new ranges
+    const [newRanges] = await db
+      .insert(scoringRanges)
+      .values({
+        competitionId: 'recomp100_2025',
+        minFatLoss: ranges.minFatLoss,
+        maxFatLoss: ranges.maxFatLoss,
+        minMuscleGain: ranges.minMuscleGain,
+        maxMuscleGain: ranges.maxMuscleGain,
+        participantCount: await this.getParticipantCount(),
+        lastUpdated: new Date(),
+        createdAt: new Date()
+      })
+      .returning();
+    
+    return newRanges;
+  }
+
+  private async getParticipantCount(): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(scoringData);
+    
+    return result?.count || 0;
   }
 
   // Fix baseline scans for all users - marks earliest scan as baseline

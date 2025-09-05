@@ -42,6 +42,10 @@ export const dexaScans = sqliteTable("dexa_scans", {
   isBaseline: integer("is_baseline", { mode: "boolean" }).default(false),
   isFinal: integer("is_final", { mode: "boolean" }).default(false),
   notes: text("notes"),
+  // Competition validation fields
+  isCompetitionEligible: integer("is_competition_eligible", { mode: "boolean" }).default(true), // Conservative default
+  scanCategory: text("scan_category", { enum: ["historical", "competition", "post-challenge"] }).default("competition"),
+  competitionRole: text("competition_role", { enum: ["baseline", "progress", "final"] }),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
@@ -58,6 +62,19 @@ export const scoringData = sqliteTable("scoring_data", {
   lastCalculated: integer("last_calculated", { mode: "timestamp" }).$defaultFn(() => new Date()),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Scoring Ranges table for normalization
+export const scoringRanges = sqliteTable("scoring_ranges", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  competitionId: text("competition_id").default("recomp100_2025"), // Support multiple competitions
+  minFatLoss: real("min_fat_loss").notNull().default(0),
+  maxFatLoss: real("max_fat_loss").notNull().default(100),
+  minMuscleGain: real("min_muscle_gain").notNull().default(0),
+  maxMuscleGain: real("max_muscle_gain").notNull().default(100),
+  participantCount: integer("participant_count").default(0),
+  lastUpdated: integer("last_updated", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
 // Zod schemas
@@ -89,12 +106,18 @@ export const insertDexaScanSchema = createInsertSchema(dexaScans, {
   fatMass: z.number().min(0).optional(),
   rmr: z.number().min(0).optional(),
   scanDate: z.date(),
+  isCompetitionEligible: z.boolean().default(true),
+  scanCategory: z.enum(["historical", "competition", "post-challenge"]).default("competition"),
+  competitionRole: z.enum(["baseline", "progress", "final"]).optional(),
 });
 
 export const selectDexaScanSchema = createSelectSchema(dexaScans);
 
 export const insertScoringDataSchema = createInsertSchema(scoringData);
 export const selectScoringDataSchema = createSelectSchema(scoringData);
+
+export const insertScoringRangesSchema = createInsertSchema(scoringRanges);
+export const selectScoringRangesSchema = createSelectSchema(scoringRanges);
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -107,6 +130,9 @@ export type InsertDexaScan = typeof dexaScans.$inferInsert;
 
 export type ScoringData = typeof scoringData.$inferSelect;
 export type InsertScoringData = typeof scoringData.$inferInsert;
+
+export type ScoringRanges = typeof scoringRanges.$inferSelect;
+export type InsertScoringRanges = typeof scoringRanges.$inferInsert;
 
 // Extended types for API responses
 export interface UserWithStats extends User {

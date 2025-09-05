@@ -22,6 +22,7 @@ import {
   type ScoreBreakdown,
 } from "@shared/scoring-utils";
 import type { LeaderboardEntry } from "@shared/schema";
+import { CompetitionStatus } from "@/components/competition-status";
 
 export default function Leaderboard() {
   const { user: currentUser } = useAuth();
@@ -38,6 +39,19 @@ export default function Leaderboard() {
       }
       return response.json();
     },
+  });
+
+  // Fetch scoring ranges for normalization
+  const { data: scoringRanges } = useQuery({
+    queryKey: ['/api/scoring-ranges'],
+    queryFn: async () => {
+      const response = await fetch('/api/scoring-ranges');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   if (leaderboardLoading) {
@@ -93,26 +107,35 @@ export default function Leaderboard() {
   const calculateProjectedScore = (
     entry: LeaderboardEntry
   ): ScoreBreakdown | null => {
-    const { user, latestScan } = entry;
+    const { user } = entry;
 
     // Check if user has target goals set
-    if (!user.targetBodyFatPercent || !user.targetLeanMass || !latestScan) {
+    if (!user.targetBodyFatPercent || !user.targetLeanMass) {
       return null;
     }
 
-    // Use latest scan as current state for projection
-    const currentScan = {
-      bodyFatPercent: latestScan.bodyFatPercent,
-      leanMass: latestScan.leanMass,
-      totalWeight: latestScan.totalWeight,
-      fatMass: latestScan.fatMass || undefined,
+    // We need to get the baseline scan for this user to calculate projections correctly
+    // For now, we'll use latestScan as a fallback, but this should ideally use baselineScan
+    const baselineScan = entry.latestScan; // TODO: Get actual baseline scan
+    
+    if (!baselineScan) {
+      return null;
+    }
+
+    // Use baseline scan for projection (show raw scores, not normalized)
+    const scanData = {
+      bodyFatPercent: baselineScan.bodyFatPercent,
+      leanMass: baselineScan.leanMass,
+      totalWeight: baselineScan.totalWeight,
+      fatMass: baselineScan.fatMass || undefined,
     };
 
     return projectScores(
-      currentScan,
+      scanData,
       user.targetBodyFatPercent,
       user.targetLeanMass,
-      user.gender || "male"
+      user.gender || "male",
+      undefined // Don't normalize projections - show raw meaningful scores
     );
   };
 
@@ -126,14 +149,14 @@ export default function Leaderboard() {
             100-Day Recomp Leaderboard
           </h1>
         </div>
-        <p className="text-gray-600 mb-1">
+        <p className="text-gray-600 mb-4">
           {displayEntries.length} contestant
           {displayEntries.length !== 1 ? "s" : ""} competing
         </p>
-        <Badge className="bg-blue-100 text-blue-800 text-lg px-4 py-2">
-          {daysRemaining} days remaining
-        </Badge>
       </div>
+
+      {/* Competition Status */}
+      <CompetitionStatus className="mb-6" />
 
       {/* Toggle Controls */}
       <div className="flex flex-col items-start space-y-3">
@@ -454,7 +477,7 @@ export default function Leaderboard() {
                 ln(BF%_start / BF%_end) × 100 × Leanness_Multiplier
               </p>
               <Badge className="bg-red-100 text-red-800 font-bold">
-                Typical Max: ~150 Points
+                Maximum: 100 Points
               </Badge>
             </div>
 
@@ -466,10 +489,10 @@ export default function Leaderboard() {
                 Muscle Gain Score (MGS)
               </h3>
               <p className="text-sm text-gray-600 mb-2">
-                (Lean_Mass_%_Change) × 100 × 17 × Gender_Multiplier
+                (Lean_Mass_%_Change) × 17 × Gender_Multiplier
               </p>
               <Badge className="bg-green-100 text-green-800 font-bold">
-                Typical Max: ~100 Points
+                Maximum: 100 Points
               </Badge>
             </div>
           </div>
@@ -616,7 +639,7 @@ export default function Leaderboard() {
                     </span>
                   </div>
                   <div className="flex justify-between text-xs text-gray-500">
-                    <span>1% × 100 × 17 × 1.0 =</span>
+                    <span>1% × 17 × 1.0 =</span>
                     <span>17.0</span>
                   </div>
                 </div>
@@ -679,7 +702,7 @@ export default function Leaderboard() {
                     </span>
                   </div>
                   <div className="flex justify-between text-xs text-gray-500">
-                    <span>0.8% × 100 × 17 × 2.0 =</span>
+                    <span>0.8% × 17 × 2.0 =</span>
                     <span>27.2</span>
                   </div>
                 </div>

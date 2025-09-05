@@ -865,6 +865,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  // Scoring normalization endpoints
+  app.get('/api/admin/scoring-ranges', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const ranges = await storage.getScoringRanges();
+      res.json(ranges);
+    } catch (error) {
+      console.error("Error fetching scoring ranges:", error);
+      res.status(500).json({ message: "Failed to fetch scoring ranges" });
+    }
+  });
+
+  app.post('/api/admin/scoring-ranges/recalculate', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      console.log('🔄 Recalculating scoring ranges...');
+      
+      // Get all current scoring data
+      const allScores = await storage.getAllScoringData();
+      console.log(`📊 Found ${allScores.length} scoring records`);
+      
+      if (allScores.length === 0) {
+        return res.json({ 
+          message: "No scoring data available yet",
+          ranges: {
+            minFatLoss: 0,
+            maxFatLoss: 100,
+            minMuscleGain: 0,
+            maxMuscleGain: 100
+          }
+        });
+      }
+      
+      // Calculate new ranges
+      const { calculateScoringRanges } = await import('../shared/scoring-utils.js');
+      
+      // Convert ScoringData to ScoreBreakdown format for range calculation
+      const scoreBreakdowns = allScores.map(score => ({
+        fatLossScore: score.fatLossScore || 0,
+        muscleGainScore: score.muscleGainScore || 0,
+        totalScore: score.totalScore || 0,
+        fatLossPercent: 0, // Not used for range calculation
+        muscleGainPercent: 0, // Not used for range calculation
+        rawFatLossScore: score.fatLossRaw || score.fatLossScore || 0,
+        rawMuscleGainScore: score.muscleGainRaw || score.muscleGainScore || 0
+      }));
+      
+      const newRanges = calculateScoringRanges(scoreBreakdowns);
+      
+      console.log('📊 New scoring ranges:', newRanges);
+      
+      // Update ranges in database
+      await storage.updateScoringRanges(newRanges);
+      
+      res.json({ 
+        message: "Scoring ranges recalculated successfully",
+        ranges: newRanges,
+        participantCount: allScores.length
+      });
+    } catch (error) {
+      console.error("Error recalculating scoring ranges:", error);
+      res.status(500).json({ message: "Failed to recalculate scoring ranges" });
+    }
+  });
+
+  app.get('/api/scoring-ranges', async (req, res) => {
+    try {
+      const ranges = await storage.getScoringRanges();
+      res.json(ranges);
+    } catch (error) {
+      console.error("Error fetching scoring ranges:", error);
+      res.status(500).json({ message: "Failed to fetch scoring ranges" });
+    }
+  });
+
   // Backup status endpoint for monitoring
   app.get('/api/admin/backup-status', requireAuth, requireAdmin, async (req, res) => {
     try {

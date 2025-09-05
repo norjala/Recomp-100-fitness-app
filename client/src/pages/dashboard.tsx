@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ProgressChart } from "@/components/progress-chart";
+import { BodyFatChart } from "@/components/body-fat-chart";
+import { LeanMassChart } from "@/components/lean-mass-chart";
+import { CompetitionStatus } from "@/components/competition-status";
 import { Plus, Percent, Dumbbell, TrendingUp, Calendar, ArrowDown, ArrowUp, Target, Save } from "lucide-react";
 import { projectScores, validateTargetGoals, formatPercentage, formatScore } from "@shared/scoring-utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -41,6 +43,29 @@ export default function Dashboard() {
     queryKey: [`/api/scoring/${user?.id}`],
     enabled: !!user,
   });
+
+  // Fetch scoring ranges for normalization
+  const { data: scoringRanges, isLoading: scoringRangesLoading, error: scoringRangesError } = useQuery({
+    queryKey: ['scoring-ranges'],
+    queryFn: async () => {
+      console.log('🔍 Fetching scoring ranges from /api/scoring-ranges');
+      const response = await apiRequest('GET', '/api/scoring-ranges');
+      const data = await response.json();
+      console.log('✅ Scoring ranges response:', data);
+      return data;
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  // Debug logging for scoring ranges
+  useEffect(() => {
+    console.log('📊 Scoring ranges status:', {
+      loading: scoringRangesLoading,
+      error: scoringRangesError,
+      data: scoringRanges,
+      hasData: !!scoringRanges
+    });
+  }, [scoringRangesLoading, scoringRangesError, scoringRanges]);
 
   // Update target goals mutation
   const updateTargetsMutation = useMutation({
@@ -142,7 +167,7 @@ export default function Dashboard() {
   
   // Calculate projected scores with memoization for performance
   const projectedScores = useMemo(() => {
-    if (!latestScan || !targetBodyFat || !targetLeanMass) return null;
+    if (!baselineScan || !targetBodyFat || !targetLeanMass) return null;
     
     const bodyFatValue = parseFloat(targetBodyFat);
     const leanMassValue = parseFloat(targetLeanMass);
@@ -150,14 +175,39 @@ export default function Dashboard() {
     // Only calculate if values are valid numbers
     if (isNaN(bodyFatValue) || isNaN(leanMassValue)) return null;
     
-    // Project from current state (latestScan) to target goals
-    return projectScores(
-      latestScan,
+    console.log('🎯 Calculating projected scores with:', {
+      baselineScan: baselineScan,
+      targetBodyFat: bodyFatValue,
+      targetLeanMass: leanMassValue,
+      gender: user?.gender || 'male',
+      scoringRanges: scoringRanges,
+      hasScoringRanges: !!scoringRanges,
+      baselineLeanMass: baselineScan.leanMass,
+      expectedMGSRaw: ((leanMassValue - baselineScan.leanMass) / baselineScan.leanMass) * 100 * 17 * (user?.gender === 'female' ? 2.0 : 1.0)
+    });
+    
+    // Project from baseline scan to target goals WITHOUT normalization (show raw scores)
+    const result = projectScores(
+      baselineScan,
       bodyFatValue,
       leanMassValue,
-      user?.gender || 'male'
+      user?.gender || 'male',
+      undefined // Don't normalize projections - show raw meaningful scores
     );
-  }, [latestScan, targetBodyFat, targetLeanMass, user?.gender]);
+    
+    console.log('📊 Projected scores result:', result);
+    console.log('🔢 Scoring ranges used for normalization:', scoringRanges);
+    console.log('💡 Raw vs Normalized breakdown:', {
+      rawMGS: result.rawMuscleGainScore,
+      normalizedMGS: result.muscleGainScore,
+      rawFLS: result.rawFatLossScore, 
+      normalizedFLS: result.fatLossScore,
+      totalRaw: (result.rawMuscleGainScore || 0) + (result.rawFatLossScore || 0),
+      totalNormalized: result.totalScore
+    });
+    
+    return result;
+  }, [baselineScan, targetBodyFat, targetLeanMass, user?.gender, scoringRanges]);
 
   // Validate target goals with memoization
   const targetValidation = useMemo(() => {
@@ -204,25 +254,9 @@ export default function Dashboard() {
         <p className="text-gray-600">Track your progress in the 100-day body recomposition challenge</p>
       </div>
 
-      {/* Challenge Status Banner */}
-      <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-4 md:p-6 text-white mb-6 md:mb-8">
-        <div className="flex items-center justify-between flex-wrap gap-3 md:gap-4">
-          <div>
-            <h3 className="text-lg md:text-xl font-semibold mb-1 md:mb-2">Challenge Progress</h3>
-            <p className="text-blue-100 text-sm md:text-base">
-              {daysRemaining > 0 ? `${daysRemaining} days left until 11/14` : 'Challenge complete!'}
-            </p>
-          </div>
-          <div className="w-full sm:w-auto">
-            <div className="bg-white bg-opacity-20 rounded-full h-2">
-              <div 
-                className="bg-white rounded-full h-2 transition-all duration-300" 
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+
+      {/* Competition Status */}
+      <CompetitionStatus className="mb-6 md:mb-8" />
 
       {/* Welcome Message for New Users */}
       {!hasMinimumScans && (
@@ -541,13 +575,34 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Progress Chart */}
-      <Card className="mb-8">
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Progress Timeline</h3>
-          <ProgressChart userId={user.id} />
-        </CardContent>
-      </Card>
+      {/* Progress Charts - Two Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-6 md:mb-8">
+        {/* Body Fat Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Percent className="h-5 w-5 mr-2 text-destructive" />
+              Body Fat History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BodyFatChart userId={user.id} />
+          </CardContent>
+        </Card>
+
+        {/* Lean Mass Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Dumbbell className="h-5 w-5 mr-2 text-secondary" />
+              Lean Mass History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <LeanMassChart userId={user.id} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

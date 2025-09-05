@@ -79,8 +79,8 @@ describe('Scoring System - Critical Business Logic', () => {
       const leanMassChange = 2; // 2% increase
       const score = calculateMuscleGainScore(leanMassChange, 'male');
       
-      // Expected: 2% * 20 points * 1.0 multiplier = 40 points
-      expect(score).toBe(40);
+      // Expected: 2% * 17 points * 1.0 multiplier = 34 points
+      expect(score).toBe(34);
     });
 
     test('should apply female bonus multiplier for muscle gain', () => {
@@ -90,8 +90,8 @@ describe('Scoring System - Critical Business Logic', () => {
       const leanMassChange = 1.5; // 1.5% increase
       const score = calculateMuscleGainScore(leanMassChange, 'female');
       
-      // Expected: 1.5% * 20 points * 1.5 multiplier = 45 points
-      expect(score).toBe(45);
+      // Expected: 1.5% * 17 points * 2.0 multiplier = 51 points, capped at 50
+      expect(score).toBe(50);
     });
 
     test('should cap muscle gain score at maximum', () => {
@@ -156,7 +156,7 @@ describe('Scoring System - Critical Business Logic', () => {
       // Verify fat loss score (20% improvement = 200 points, capped at 50)
       expect(scoringData!.fatLossScore).toBe(50);
 
-      // Verify muscle gain score (~3.8% * 20 * 1.0 = ~76, capped at 50)
+      // Verify muscle gain score (~3.8% * 17 * 1.0 = ~65, capped at 50)
       expect(scoringData!.muscleGainScore).toBe(50);
 
       // Total should be fat loss + muscle gain
@@ -291,7 +291,7 @@ describe('Scoring System - Critical Business Logic', () => {
       const tinyChange = 0.1; // 0.1% increase
       const score = calculateMuscleGainScore(tinyChange, 'male');
       
-      // Expected: 0.1% * 20 = 2 points
+      // Expected: 0.1% * 17 = 1.7 points (rounded to 2)
       expect(score).toBe(2);
     });
 

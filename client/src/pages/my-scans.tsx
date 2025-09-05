@@ -17,6 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ScanComparison } from "@/components/scan-comparison";
+import { ScanCategoryBadge } from "@/components/scan-classification-warning";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertDexaScanSchema } from "@shared/schema";
@@ -921,6 +922,7 @@ export default function MyScans() {
                       ) : scans[0].id === scan.id ? (
                         <Badge className="bg-success text-white">Latest</Badge>
                       ) : null}
+                      <ScanCategoryBadge scan={scan} />
                       <Button 
                         variant="ghost" 
                         size="sm"
