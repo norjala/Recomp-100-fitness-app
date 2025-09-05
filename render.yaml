@@ -57,7 +57,7 @@ services:
       - key: FORCE_HTTPS
         value: "true"
       - key: CORS_ORIGINS
-        value: "https://recomp-100-fitness-app.onrender.com"
+        value: "https://YOUR_APP_NAME.onrender.com"
       
       # === FILE UPLOAD SETTINGS ===
       - key: MAX_FILE_SIZE

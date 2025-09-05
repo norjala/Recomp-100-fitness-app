@@ -243,7 +243,7 @@ export default function Leaderboard() {
                       Projected Score
                     </span>
                     <div className="text-xs text-blue-600 mt-1 font-normal">
-                      / 200 pts
+                      (raw score)
                     </div>
                   </th>
                 )}
@@ -259,7 +259,7 @@ export default function Leaderboard() {
                       : "Competition Score"}
                   </span>
                   <div className="text-xs text-purple-600 mt-1 font-normal">
-                    / 200 pts
+                    (raw score)
                   </div>
                 </th>
                 <th
@@ -380,7 +380,7 @@ export default function Leaderboard() {
                                 {Math.round(projectedScore.totalScore)}
                               </span>
                               <span className="text-xs text-blue-600 font-medium">
-                                / 200 PTS
+                                PTS
                               </span>
                               <div className="text-xs text-gray-500 mt-1 space-y-0.5">
                                 <div>
@@ -405,7 +405,7 @@ export default function Leaderboard() {
                           {Math.round(entry.totalScore)}
                         </span>
                         <span className="text-xs text-purple-600 font-medium">
-                          / 200 PTS
+                          PTS
                         </span>
                         <div className="text-xs text-gray-500 mt-1 space-y-0.5">
                           <div>FLS: {Math.round(entry.fatLossScore)}</div>

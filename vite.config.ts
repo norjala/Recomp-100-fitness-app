@@ -15,12 +15,12 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
     sourcemap: false, // Disable source maps for production
-    minify: false, // TESTING: Disable minification to check if esbuild breaks RHF
+    minify: 'esbuild', // Re-enabled minification for production deployment
     chunkSizeWarningLimit: 1000, // Increase chunk size limit
     rollupOptions: {
       output: {
-        // EMERGENCY: True single chunk to eliminate all React Hook Form issues
-        // This disables ALL chunking to prevent module loading order problems
+        // Single chunk configuration to prevent module loading order issues
+        // Maintaining this approach for React Hook Form stability
         manualChunks: undefined,
       },
     },

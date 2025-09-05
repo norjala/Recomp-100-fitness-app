@@ -441,9 +441,15 @@ export default function MyScans() {
     } catch (error) {
       console.error("Failed to extract data:", error);
       const errorMessage = error instanceof Error ? error.message : "Could not extract data from file. Please enter manually.";
+      
+      // Check if it's an authentication error
+      const isAuthError = errorMessage.includes('401') || errorMessage.includes('authentication') || errorMessage.includes('Authentication');
+      
       toast({
-        title: "Extraction failed",
-        description: errorMessage,
+        title: isAuthError ? "Authentication required" : "Data extraction issue",
+        description: isAuthError 
+          ? "Please log in to use the DEXA extraction feature" 
+          : errorMessage,
         variant: "destructive",
       });
     } finally {

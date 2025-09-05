@@ -47,7 +47,8 @@ export function setupAuth(app: Express) {
     name: "recomp.sid", // Custom session name for security
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      // Allow HTTP for localhost testing, but require HTTPS for production domains
+      secure: process.env.NODE_ENV === "production" && !process.env.ALLOW_HTTP_LOCALHOST,
       maxAge: sessionTtl,
       sameSite: "lax", // Use lax for better compatibility
     },

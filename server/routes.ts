@@ -896,21 +896,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Calculate new ranges
-      const { calculateScoringRanges } = await import('../shared/scoring-utils.js');
-      
-      // Convert ScoringData to ScoreBreakdown format for range calculation
-      const scoreBreakdowns = allScores.map(score => ({
-        fatLossScore: score.fatLossScore || 0,
-        muscleGainScore: score.muscleGainScore || 0,
-        totalScore: score.totalScore || 0,
-        fatLossPercent: 0, // Not used for range calculation
-        muscleGainPercent: 0, // Not used for range calculation
-        rawFatLossScore: score.fatLossRaw || score.fatLossScore || 0,
-        rawMuscleGainScore: score.muscleGainRaw || score.muscleGainScore || 0
-      }));
-      
-      const newRanges = calculateScoringRanges(scoreBreakdowns);
+      // Raw scoring system - no longer need to calculate ranges for normalization
+      const newRanges = {
+        minFatLoss: 0,
+        maxFatLoss: Math.max(...allScores.map(s => s.fatLossScore || 0), 100),
+        minMuscleGain: 0,
+        maxMuscleGain: Math.max(...allScores.map(s => s.muscleGainScore || 0), 100)
+      };
       
       console.log('📊 New scoring ranges:', newRanges);
       

@@ -20,18 +20,6 @@ export interface ScoreBreakdown {
   rawMuscleGainScore?: number;
 }
 
-export interface ScoringRange {
-  minFatLoss: number;
-  maxFatLoss: number;
-  minMuscleGain: number;
-  maxMuscleGain: number;
-}
-
-export interface NormalizedScoreBreakdown extends ScoreBreakdown {
-  normalizedFatLossScore: number;
-  normalizedMuscleGainScore: number;
-  normalizedTotalScore: number;
-}
 
 /**
  * Get leanness multiplier based on baseline body fat percentage
@@ -112,74 +100,22 @@ export function calculatePercentageChange(baseline: number, target: number): num
   return ((target - baseline) / baseline) * 100;
 }
 
-/**
- * Normalize a raw score to 1-100 range using min-max normalization
- */
-export function normalizeScore(rawScore: number, minScore: number, maxScore: number): number {
-  if (maxScore === minScore) {
-    return rawScore > 0 ? 100 : 0;
-  }
-  
-  const normalized = ((rawScore - minScore) / (maxScore - minScore)) * 99 + 1;
-  return Math.max(1, Math.min(100, normalized));
-}
-
-/**
- * Calculate normalized scores based on competition-wide score ranges
- */
-export function calculateNormalizedScores(
-  baselineScan: ScanData,
-  latestScan: ScanData,
-  gender: Gender,
-  scoringRange: ScoringRange
-): NormalizedScoreBreakdown {
-  // Calculate raw scores
-  const rawScores = calculateActualScores(baselineScan, latestScan, gender);
-  
-  // Normalize scores to 1-100 range
-  const normalizedFatLossScore = normalizeScore(
-    rawScores.fatLossScore,
-    scoringRange.minFatLoss,
-    scoringRange.maxFatLoss
-  );
-  
-  const normalizedMuscleGainScore = normalizeScore(
-    rawScores.muscleGainScore,
-    scoringRange.minMuscleGain,
-    scoringRange.maxMuscleGain
-  );
-  
-  const normalizedTotalScore = normalizedFatLossScore + normalizedMuscleGainScore;
-  
-  return {
-    ...rawScores,
-    rawFatLossScore: rawScores.fatLossScore,
-    rawMuscleGainScore: rawScores.muscleGainScore,
-    normalizedFatLossScore,
-    normalizedMuscleGainScore,
-    normalizedTotalScore,
-    fatLossScore: normalizedFatLossScore,
-    muscleGainScore: normalizedMuscleGainScore,
-    totalScore: normalizedTotalScore
-  };
-}
 
 /**
  * Project scores based on current baseline scan and target goals
- * Optionally normalized using scoring ranges
+ * Uses raw scoring calculations
  */
 export function projectScores(
   baselineScan: ScanData,
   targetBodyFat: number,
   targetLeanMass: number,
-  gender: Gender,
-  scoringRange?: ScoringRange
+  gender: Gender
 ): ScoreBreakdown {
   // Calculate percentage changes needed to reach targets
   const fatLossPercent = calculatePercentageChange(baselineScan.bodyFatPercent, targetBodyFat);
   const muscleGainPercent = calculatePercentageChange(baselineScan.leanMass, targetLeanMass);
   
-  // Calculate projected scores using correct formulas
+  // Calculate projected raw scores using formulas
   const fatLossScore = calculateFatLossScore(
     baselineScan.bodyFatPercent, 
     targetBodyFat, 
@@ -192,31 +128,6 @@ export function projectScores(
     gender
   );
   const totalScore = fatLossScore + muscleGainScore;
-  
-  // Apply normalization if scoring ranges are provided
-  if (scoringRange) {
-    const normalizedFatLossScore = normalizeScore(
-      fatLossScore,
-      scoringRange.minFatLoss,
-      scoringRange.maxFatLoss
-    );
-    const normalizedMuscleGainScore = normalizeScore(
-      muscleGainScore,
-      scoringRange.minMuscleGain,
-      scoringRange.maxMuscleGain
-    );
-    const normalizedTotalScore = normalizedFatLossScore + normalizedMuscleGainScore;
-    
-    return {
-      fatLossScore: normalizedFatLossScore,
-      muscleGainScore: normalizedMuscleGainScore,
-      totalScore: normalizedTotalScore,
-      fatLossPercent,
-      muscleGainPercent,
-      rawFatLossScore: fatLossScore,
-      rawMuscleGainScore: muscleGainScore
-    };
-  }
   
   return {
     fatLossScore,
@@ -313,29 +224,6 @@ export function formatPercentage(value: number, decimals: number = 1): string {
   return `${sign}${value.toFixed(decimals)}%`;
 }
 
-/**
- * Calculate score ranges across all participants for normalization
- */
-export function calculateScoringRanges(allScores: ScoreBreakdown[]): ScoringRange {
-  if (allScores.length === 0) {
-    return {
-      minFatLoss: 0,
-      maxFatLoss: 100,
-      minMuscleGain: 0,
-      maxMuscleGain: 100
-    };
-  }
-  
-  const fatLossScores = allScores.map(s => s.rawFatLossScore || s.fatLossScore);
-  const muscleGainScores = allScores.map(s => s.rawMuscleGainScore || s.muscleGainScore);
-  
-  return {
-    minFatLoss: Math.min(...fatLossScores, 0),
-    maxFatLoss: Math.max(...fatLossScores, 1),
-    minMuscleGain: Math.min(...muscleGainScores, 0),
-    maxMuscleGain: Math.max(...muscleGainScores, 1)
-  };
-}
 
 /**
  * Format score for display
@@ -344,9 +232,3 @@ export function formatScore(score: number, decimals: number = 1): string {
   return score.toFixed(decimals);
 }
 
-/**
- * Format normalized score for display with raw score in parentheses
- */
-export function formatNormalizedScore(normalizedScore: number, rawScore: number, decimals: number = 1): string {
-  return `${normalizedScore.toFixed(decimals)} (${rawScore.toFixed(decimals)} raw)`;
-}

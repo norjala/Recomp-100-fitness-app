@@ -18,7 +18,6 @@ import {
 } from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, desc, asc, and, isNull, isNotNull, ne, gt, sql } from "drizzle-orm";
-import type { ScoringRange } from "../shared/scoring-utils.js";
 import { classifyScanDate } from "../shared/competition-config.js";
 
 export interface IStorage {
@@ -51,9 +50,9 @@ export interface IStorage {
   getContestants(): Promise<ContestantEntry[]>;
   recalculateAllScores(): Promise<void>;
   
-  // Scoring ranges for normalization
+  // Scoring ranges for normalization (no longer used with raw scoring)
   getScoringRanges(): Promise<ScoringRanges | null>;
-  updateScoringRanges(ranges: ScoringRange): Promise<ScoringRanges>;
+  updateScoringRanges(ranges: any): Promise<ScoringRanges>;
   
   // Admin operations
   getAllUsers(): Promise<User[]>;
@@ -579,9 +578,9 @@ export class DatabaseStorage implements IStorage {
       user.gender || "male"
     );
 
-    console.log(`Calculated RAW scores: FLS=${fatLossRawScore.toFixed(2)}, MGS=${muscleGainRawScore.toFixed(2)}`);
+    console.log(`Calculated raw scores: FLS=${fatLossRawScore.toFixed(2)}, MGS=${muscleGainRawScore.toFixed(2)}, Total=${(fatLossRawScore + muscleGainRawScore).toFixed(2)}`);
 
-    // Store RAW scores (normalization happens in recalculateAllScores)
+    // Store raw scores directly - no normalization
     await this.upsertScoringData({
       userId,
       fatLossScore: fatLossRawScore,
@@ -638,73 +637,12 @@ export class DatabaseStorage implements IStorage {
     // Get all users with scoring data
     const allScoring = await db.select().from(scoringData);
     
-    // Recalculate raw scores for all users
+    // Recalculate raw scores for all users - now using raw scores directly
     for (const scoring of allScoring) {
       await this.calculateAndUpdateUserScore(scoring.userId);
     }
-
-    // Get all updated raw scores for normalization
-    const updatedScoring = await db.select().from(scoringData);
     
-    if (updatedScoring.length === 0) return;
-
-    // Find min and max for min-max normalization (1-100 scale for each component)
-    const fatLossScores = updatedScoring.map(s => s.fatLossRaw).filter((s): s is number => s !== null && s > 0);
-    const muscleGainScores = updatedScoring.map(s => s.muscleGainRaw).filter((s): s is number => s !== null);
-
-    console.log(`Fat Loss Raw Scores: [${fatLossScores.join(', ')}]`);
-    console.log(`Muscle Gain Raw Scores: [${muscleGainScores.join(', ')}]`);
-
-    // Calculate normalization parameters
-    const minFLS = fatLossScores.length > 0 ? Math.min(...fatLossScores) : 0;
-    const maxFLS = fatLossScores.length > 0 ? Math.max(...fatLossScores) : 0;
-    const minMGS = muscleGainScores.length > 0 ? Math.min(...muscleGainScores) : 0;
-    const maxMGS = muscleGainScores.length > 0 ? Math.max(...muscleGainScores) : 0;
-
-    console.log(`Normalization ranges: FLS [${minFLS.toFixed(2)} - ${maxFLS.toFixed(2)}], MGS [${minMGS.toFixed(2)} - ${maxMGS.toFixed(2)}]`);
-
-    // Normalize and update scores to 1-100 scale per component (max total = 200)
-    for (const scoring of updatedScoring) {
-      let normalizedFLS = 0;
-      let normalizedMGS = 0;
-
-      // Normalize Fat Loss Score to 1-100
-      if (scoring.fatLossRaw && scoring.fatLossRaw > 0 && maxFLS > minFLS) {
-        normalizedFLS = 1 + ((scoring.fatLossRaw - minFLS) / (maxFLS - minFLS)) * 99;
-      } else if (scoring.fatLossRaw && scoring.fatLossRaw > 0 && maxFLS === minFLS) {
-        // All users have same fat loss performance
-        normalizedFLS = 100;
-      }
-
-      // Normalize Muscle Gain Score to 1-100  
-      if (maxMGS > minMGS) {
-        if (scoring.muscleGainRaw !== null && scoring.muscleGainRaw >= 0) {
-          normalizedMGS = 1 + ((scoring.muscleGainRaw - minMGS) / (maxMGS - minMGS)) * 99;
-        } else {
-          // Negative muscle gain (muscle loss) gets 0 points
-          normalizedMGS = 0;
-        }
-      } else if (scoring.muscleGainRaw && scoring.muscleGainRaw > 0 && maxMGS === minMGS) {
-        // All users have same muscle gain performance
-        normalizedMGS = 100;
-      }
-
-      const totalScore = normalizedFLS + normalizedMGS;
-
-      console.log(`User ${scoring.userId}: Raw(${scoring.fatLossRaw?.toFixed(2)}, ${scoring.muscleGainRaw?.toFixed(2)}) → Normalized(${normalizedFLS.toFixed(1)}, ${normalizedMGS.toFixed(1)}) = ${totalScore.toFixed(1)}/200`);
-
-      await db
-        .update(scoringData)
-        .set({
-          fatLossScore: normalizedFLS,
-          muscleGainScore: normalizedMGS,
-          totalScore: totalScore,
-          lastCalculated: new Date(),
-        })
-        .where(eq(scoringData.userId, scoring.userId));
-    }
-    
-    console.log('✅ All scores recalculated using research-based formulas with 1-100 normalization (max 200 total)');
+    console.log('✅ All scores recalculated using research-based raw scoring formulas');
   }
 
   async updateDexaScan(scanId: string, updates: Partial<InsertDexaScan>): Promise<DexaScan> {
@@ -765,7 +703,7 @@ export class DatabaseStorage implements IStorage {
     return ranges || null;
   }
 
-  async updateScoringRanges(ranges: ScoringRange): Promise<ScoringRanges> {
+  async updateScoringRanges(ranges: any): Promise<ScoringRanges> {
     // Delete existing ranges for this competition
     await db
       .delete(scoringRanges)
