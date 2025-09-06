@@ -865,70 +865,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // Scoring normalization endpoints
-  app.get('/api/admin/scoring-ranges', requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const ranges = await storage.getScoringRanges();
-      res.json(ranges);
-    } catch (error) {
-      console.error("Error fetching scoring ranges:", error);
-      res.status(500).json({ message: "Failed to fetch scoring ranges" });
-    }
-  });
 
-  app.post('/api/admin/scoring-ranges/recalculate', requireAuth, requireAdmin, async (req, res) => {
-    try {
-      console.log('🔄 Recalculating scoring ranges...');
-      
-      // Get all current scoring data
-      const allScores = await storage.getAllScoringData();
-      console.log(`📊 Found ${allScores.length} scoring records`);
-      
-      if (allScores.length === 0) {
-        return res.json({ 
-          message: "No scoring data available yet",
-          ranges: {
-            minFatLoss: 0,
-            maxFatLoss: 100,
-            minMuscleGain: 0,
-            maxMuscleGain: 100
-          }
-        });
-      }
-      
-      // Raw scoring system - no longer need to calculate ranges for normalization
-      const newRanges = {
-        minFatLoss: 0,
-        maxFatLoss: Math.max(...allScores.map(s => s.fatLossScore || 0), 100),
-        minMuscleGain: 0,
-        maxMuscleGain: Math.max(...allScores.map(s => s.muscleGainScore || 0), 100)
-      };
-      
-      console.log('📊 New scoring ranges:', newRanges);
-      
-      // Update ranges in database
-      await storage.updateScoringRanges(newRanges);
-      
-      res.json({ 
-        message: "Scoring ranges recalculated successfully",
-        ranges: newRanges,
-        participantCount: allScores.length
-      });
-    } catch (error) {
-      console.error("Error recalculating scoring ranges:", error);
-      res.status(500).json({ message: "Failed to recalculate scoring ranges" });
-    }
-  });
 
-  app.get('/api/scoring-ranges', async (req, res) => {
-    try {
-      const ranges = await storage.getScoringRanges();
-      res.json(ranges);
-    } catch (error) {
-      console.error("Error fetching scoring ranges:", error);
-      res.status(500).json({ message: "Failed to fetch scoring ranges" });
-    }
-  });
 
   // Backup status endpoint for monitoring
   app.get('/api/admin/backup-status', requireAuth, requireAdmin, async (req, res) => {

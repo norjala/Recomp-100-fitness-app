@@ -41,18 +41,6 @@ export default function Leaderboard() {
     },
   });
 
-  // Fetch scoring ranges for normalization
-  const { data: scoringRanges } = useQuery({
-    queryKey: ['/api/scoring-ranges'],
-    queryFn: async () => {
-      const response = await fetch('/api/scoring-ranges');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.json();
-    },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  });
 
   if (leaderboardLoading) {
     return <LeaderboardSkeleton />;

@@ -44,28 +44,7 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
-  // Fetch scoring ranges for normalization
-  const { data: scoringRanges, isLoading: scoringRangesLoading, error: scoringRangesError } = useQuery({
-    queryKey: ['scoring-ranges'],
-    queryFn: async () => {
-      console.log('🔍 Fetching scoring ranges from /api/scoring-ranges');
-      const response = await apiRequest('GET', '/api/scoring-ranges');
-      const data = await response.json();
-      console.log('✅ Scoring ranges response:', data);
-      return data;
-    },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  });
 
-  // Debug logging for scoring ranges
-  useEffect(() => {
-    console.log('📊 Scoring ranges status:', {
-      loading: scoringRangesLoading,
-      error: scoringRangesError,
-      data: scoringRanges,
-      hasData: !!scoringRanges
-    });
-  }, [scoringRangesLoading, scoringRangesError, scoringRanges]);
 
   // Update target goals mutation
   const updateTargetsMutation = useMutation({
@@ -180,8 +159,6 @@ export default function Dashboard() {
       targetBodyFat: bodyFatValue,
       targetLeanMass: leanMassValue,
       gender: user?.gender || 'male',
-      scoringRanges: scoringRanges,
-      hasScoringRanges: !!scoringRanges,
       baselineLeanMass: baselineScan.leanMass,
       expectedMGSRaw: ((leanMassValue - baselineScan.leanMass) / baselineScan.leanMass) * 100 * 17 * (user?.gender === 'female' ? 2.0 : 1.0)
     });
@@ -196,7 +173,6 @@ export default function Dashboard() {
     );
     
     console.log('📊 Projected scores result:', result);
-    console.log('🔢 Scoring ranges used for normalization:', scoringRanges);
     console.log('💡 Raw vs Normalized breakdown:', {
       rawMGS: result.rawMuscleGainScore,
       normalizedMGS: result.muscleGainScore,
@@ -207,7 +183,7 @@ export default function Dashboard() {
     });
     
     return result;
-  }, [baselineScan, targetBodyFat, targetLeanMass, user?.gender, scoringRanges]);
+  }, [baselineScan, targetBodyFat, targetLeanMass, user?.gender]);
 
   // Validate target goals with memoization
   const targetValidation = useMemo(() => {
