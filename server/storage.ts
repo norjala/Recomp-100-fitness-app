@@ -2,7 +2,6 @@ import {
   users,
   dexaScans,
   scoringData,
-  scoringRanges,
   type User,
   type InsertUser,
   type RegisterUser,
@@ -10,8 +9,6 @@ import {
   type InsertDexaScan,
   type ScoringData,
   type InsertScoringData,
-  type ScoringRanges,
-  type InsertScoringRanges,
   type UserWithStats,
   type LeaderboardEntry,
   type ContestantEntry,
@@ -50,9 +47,6 @@ export interface IStorage {
   getContestants(): Promise<ContestantEntry[]>;
   recalculateAllScores(): Promise<void>;
   
-  // Scoring ranges for normalization (no longer used with raw scoring)
-  getScoringRanges(): Promise<ScoringRanges | null>;
-  updateScoringRanges(ranges: any): Promise<ScoringRanges>;
   
   // Admin operations
   getAllUsers(): Promise<User[]>;
@@ -692,40 +686,6 @@ export class DatabaseStorage implements IStorage {
       .from(scoringData);
   }
 
-  async getScoringRanges(): Promise<ScoringRanges | null> {
-    const [ranges] = await db
-      .select()
-      .from(scoringRanges)
-      .where(eq(scoringRanges.competitionId, 'recomp100_2025'))
-      .orderBy(desc(scoringRanges.lastUpdated))
-      .limit(1);
-    
-    return ranges || null;
-  }
-
-  async updateScoringRanges(ranges: any): Promise<ScoringRanges> {
-    // Delete existing ranges for this competition
-    await db
-      .delete(scoringRanges)
-      .where(eq(scoringRanges.competitionId, 'recomp100_2025'));
-    
-    // Insert new ranges
-    const [newRanges] = await db
-      .insert(scoringRanges)
-      .values({
-        competitionId: 'recomp100_2025',
-        minFatLoss: ranges.minFatLoss,
-        maxFatLoss: ranges.maxFatLoss,
-        minMuscleGain: ranges.minMuscleGain,
-        maxMuscleGain: ranges.maxMuscleGain,
-        participantCount: await this.getParticipantCount(),
-        lastUpdated: new Date(),
-        createdAt: new Date()
-      })
-      .returning();
-    
-    return newRanges;
-  }
 
   private async getParticipantCount(): Promise<number> {
     const [result] = await db
