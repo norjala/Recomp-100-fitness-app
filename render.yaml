@@ -25,7 +25,7 @@ services:
       # === DATABASE & PERSISTENCE (CRITICAL) ===
       # These MUST use /opt/render/persistent for data to survive deployments
       - key: DATABASE_URL
-        value: /opt/render/persistent/data/fitness_challenge.db
+        value: /opt/render/persistent/fitness_challenge.db
       - key: UPLOADS_DIR
         value: /opt/render/persistent/uploads
       
@@ -57,7 +57,7 @@ services:
       - key: FORCE_HTTPS
         value: "true"
       - key: CORS_ORIGINS
-        value: "https://YOUR_APP_NAME.onrender.com"
+        value: "https://recomp-100-fitness-app.onrender.com,https://recomp-100-fitness-app-*.onrender.com"
       
       # === FILE UPLOAD SETTINGS ===
       - key: MAX_FILE_SIZE

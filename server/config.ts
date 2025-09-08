@@ -289,8 +289,13 @@ export function getCorsOrigins(): string[] {
   if (process.env.NODE_ENV === "production") {
     const productionOrigins = [
       "https://recomp-100-fitness-app.onrender.com",
-      "https://recomp-100-fitness-app-onrender.com", // Alternative format
+      "https://recomp-100-fitness-app-*.onrender.com", // Wildcard for auto-generated URLs
     ];
+    
+    // Auto-detect Render URL from environment
+    if (process.env.RENDER_EXTERNAL_URL) {
+      productionOrigins.push(process.env.RENDER_EXTERNAL_URL);
+    }
     
     // Add production origins if they're not already included
     productionOrigins.forEach(origin => {

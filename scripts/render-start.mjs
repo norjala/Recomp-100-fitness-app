@@ -382,6 +382,17 @@ try {
 
 console.log('\n🎯 Starting application with enhanced configuration...');
 
+// Debug environment variables for production troubleshooting
+console.log('🔍 Key Environment Variables:');
+console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`   PORT: ${process.env.PORT || 'not set (will default to 3001)'}`);
+console.log(`   DATABASE_URL: ${process.env.DATABASE_URL || 'not set'}`);
+console.log(`   UPLOADS_DIR: ${process.env.UPLOADS_DIR || 'not set'}`);
+console.log(`   CORS_ORIGINS: ${process.env.CORS_ORIGINS || 'not set (will use defaults)'}`);
+console.log(`   RENDER_EXTERNAL_URL: ${process.env.RENDER_EXTERNAL_URL || 'not set'}`);
+console.log(`   SESSION_SECRET: ${process.env.SESSION_SECRET ? '***SET***' : 'not set'}`);
+console.log();
+
 // Start the built application with comprehensive environment
 const child = spawn('node', ['dist/server/index.js'], {
   stdio: 'inherit',

@@ -20,9 +20,34 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false, // Disable for development compatibility
 }));
 
-// CORS configuration
+// CORS configuration with enhanced production support
 app.use(cors({
-  origin: getCorsOrigins(),
+  origin: (origin, callback) => {
+    const allowedOrigins = getCorsOrigins();
+    
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Check exact matches first
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // In production, allow any *.onrender.com subdomain for this app
+    if (config.NODE_ENV === "production" && origin.includes("onrender.com")) {
+      if (origin.includes("recomp-100-fitness") || origin.includes("fitness-app")) {
+        return callback(null, true);
+      }
+    }
+    
+    // Log rejected origins in development for debugging
+    if (config.NODE_ENV === "development") {
+      log.warn(`CORS: Rejected origin: ${origin}`);
+      log.info(`CORS: Allowed origins: ${allowedOrigins.join(', ')}`);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
