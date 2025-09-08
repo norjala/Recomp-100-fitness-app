@@ -202,14 +202,55 @@ app.use((req, res, next) => {
     const { serveStatic } = await import("./vite-production.js");
     serveStatic(app);
 
-    // Use configured port
-    const port = config.PORT;
-    server.listen(port, "0.0.0.0", () => {
-      log.info(`🚀 Server running on port ${port}`);
-      log.info(`🌍 Environment: ${config.NODE_ENV}`);
-      log.info(`🔒 Security: Helmet, CORS, Rate limiting enabled`);
-      log.info(`📊 Health check available at: http://localhost:${port}/health`);
-    });
+    // Enhanced port management with conflict detection
+    const startServer = async (preferredPort: number, maxRetries: number = 5): Promise<void> => {
+      let currentPort = preferredPort;
+      let attempt = 0;
+
+      while (attempt < maxRetries) {
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const serverInstance = server.listen(currentPort, "0.0.0.0", () => {
+              log.info(`🚀 Server running on port ${currentPort}`);
+              log.info(`🌍 Environment: ${config.NODE_ENV}`);
+              log.info(`🔒 Security: Helmet, CORS, Rate limiting enabled`);
+              log.info(`📊 Health check available at: http://localhost:${currentPort}/health`);
+              
+              if (currentPort !== preferredPort) {
+                log.warn(`⚠️  Using fallback port ${currentPort} instead of preferred port ${preferredPort}`);
+              }
+              resolve();
+            });
+
+            serverInstance.on('error', (err: any) => {
+              if (err.code === 'EADDRINUSE') {
+                log.warn(`⚠️  Port ${currentPort} is already in use (attempt ${attempt + 1}/${maxRetries})`);
+                reject(err);
+              } else {
+                log.error('Server startup error:', err);
+                reject(err);
+              }
+            });
+          });
+          
+          // Success - exit retry loop
+          break;
+          
+        } catch (err: any) {
+          if (err.code === 'EADDRINUSE' && attempt < maxRetries - 1) {
+            attempt++;
+            currentPort = preferredPort + attempt;
+            log.info(`🔄 Retrying with port ${currentPort}...`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          } else {
+            // Final attempt failed or non-port error
+            throw new Error(`Failed to start server after ${maxRetries} attempts. Last error: ${err.message}`);
+          }
+        }
+      }
+    };
+
+    await startServer(config.PORT);
 
     // Graceful shutdown handling
     const shutdown = (signal: string) => {

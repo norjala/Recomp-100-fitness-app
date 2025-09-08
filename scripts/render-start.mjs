@@ -252,8 +252,103 @@ if (databaseExists) {
   }
 }
 
+// === PROCESS CLEANUP ===
+console.log('\n🔧 PHASE 4: Process Cleanup & Port Management');
+console.log('============================================');
+
+// Check for existing processes on the target port
+const checkPortInUse = async (port) => {
+  try {
+    const { spawn } = await import('child_process');
+    return new Promise((resolve) => {
+      // Use lsof to check if port is in use
+      const lsofProcess = spawn('lsof', ['-i', `:${port}`], { stdio: 'pipe' });
+      
+      let output = '';
+      lsofProcess.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      lsofProcess.on('close', (code) => {
+        if (code === 0 && output.trim()) {
+          // Port is in use, parse the output to get process info
+          const lines = output.trim().split('\n').slice(1); // Skip header
+          const processes = lines.map(line => {
+            const parts = line.trim().split(/\s+/);
+            return {
+              command: parts[0],
+              pid: parts[1],
+              user: parts[2]
+            };
+          });
+          resolve({ inUse: true, processes });
+        } else {
+          resolve({ inUse: false, processes: [] });
+        }
+      });
+      
+      lsofProcess.on('error', () => {
+        // lsof not available or error - assume port is free
+        resolve({ inUse: false, processes: [] });
+      });
+    });
+  } catch (error) {
+    // Fallback if lsof is not available
+    return { inUse: false, processes: [] };
+  }
+};
+
+// Kill processes using the target port
+const killProcessesOnPort = async (port) => {
+  const portCheck = await checkPortInUse(port);
+  
+  if (portCheck.inUse) {
+    console.log(`🔍 Found ${portCheck.processes.length} process(es) using port ${port}:`);
+    
+    for (const proc of portCheck.processes) {
+      console.log(`   - ${proc.command} (PID: ${proc.pid}, User: ${proc.user})`);
+      
+      try {
+        process.kill(proc.pid, 'SIGTERM');
+        console.log(`✅ Sent SIGTERM to process ${proc.pid}`);
+        
+        // Wait a moment for graceful shutdown
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Check if process is still running, force kill if needed
+        const stillRunning = await checkPortInUse(port);
+        if (stillRunning.inUse) {
+          process.kill(proc.pid, 'SIGKILL');
+          console.log(`💀 Force killed process ${proc.pid}`);
+        }
+      } catch (killError) {
+        if (killError.code === 'ESRCH') {
+          console.log(`✅ Process ${proc.pid} already terminated`);
+        } else {
+          console.warn(`⚠️  Failed to kill process ${proc.pid}: ${killError.message}`);
+        }
+      }
+    }
+    
+    // Final verification
+    const finalCheck = await checkPortInUse(port);
+    if (finalCheck.inUse) {
+      console.warn(`⚠️  Warning: Port ${port} may still be in use after cleanup attempt`);
+    } else {
+      console.log(`✅ Port ${port} is now available`);
+    }
+  } else {
+    console.log(`✅ Port ${port} is available`);
+  }
+};
+
+// Determine the target port from environment or default
+const targetPort = process.env.PORT || 3001;
+console.log(`🔍 Checking port ${targetPort} availability...`);
+await killProcessesOnPort(targetPort);
+
 // === APPLICATION STARTUP VERIFICATION ===
-console.log('\n🚀 PHASE 4: Application Startup');
+console.log('\n🚀 PHASE 5: Application Startup');
 console.log('===============================');
 
 console.log('📁 Current working directory:', process.cwd());
