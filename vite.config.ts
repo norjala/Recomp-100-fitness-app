@@ -22,10 +22,6 @@ export default defineConfig({
         // Single chunk configuration to prevent module loading order issues
         // Maintaining this approach for React Hook Form stability
         manualChunks: undefined,
-        // Force cache busting with timestamp hash suffix
-        entryFileNames: `[name]-[hash]-${Date.now()}.js`,
-        chunkFileNames: `[name]-[hash]-${Date.now()}.js`,
-        assetFileNames: `[name]-[hash]-${Date.now()}.[ext]`,
       },
     },
   },
