@@ -154,6 +154,9 @@ export async function initializeDatabase() {
           is_baseline INTEGER DEFAULT 0,
           is_final INTEGER DEFAULT 0,
           notes TEXT,
+          is_competition_eligible INTEGER DEFAULT 1,
+          scan_category TEXT DEFAULT 'competition' CHECK(scan_category IN ('historical', 'competition', 'post-challenge')),
+          competition_role TEXT CHECK(competition_role IN ('baseline', 'progress', 'final')),
           created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
           updated_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
