@@ -45,6 +45,7 @@
     "db:pg:studio": "drizzle-kit studio --config drizzle.config.postgres.ts",
     "db:backup": "tsx --experimental-specifier-resolution=node scripts/backup-db.ts",
     "db:restore": "tsx --experimental-specifier-resolution=node scripts/restore-db.ts",
+    "db:migrate:production": "node scripts/migrate-db.mjs",
     "seed:test-users": "tsx --experimental-specifier-resolution=node scripts/seed-test-users.ts",
     "seed:cleanup": "tsx --experimental-specifier-resolution=node scripts/seed-test-users.ts --cleanup",
     "seed:reset": "tsx --experimental-specifier-resolution=node scripts/seed-test-users.ts --reset",

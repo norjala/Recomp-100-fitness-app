@@ -3,7 +3,7 @@ services:
     name: recomp-100-fitness-app
     runtime: node
     plan: free  # Specify the plan explicitly
-    buildCommand: npm run build
+    buildCommand: npm run build && npm run db:migrate:production
     startCommand: npm start
     
     # Health checks to verify application and database status
@@ -25,7 +25,7 @@ services:
       # === DATABASE & PERSISTENCE (CRITICAL) ===
       # These MUST use /opt/render/persistent for data to survive deployments
       - key: DATABASE_URL
-        value: /opt/render/persistent/fitness_challenge.db
+        value: /opt/render/persistent/data/fitness_challenge.db
       - key: UPLOADS_DIR
         value: /opt/render/persistent/uploads
       
