@@ -66,30 +66,6 @@ export default function Leaderboard() {
     );
   }
 
-  // Challenge countdown logic
-  const challengeStartDate = new Date("2025-08-04");
-  const challengeEndDate = new Date("2025-11-14");
-  const today = new Date();
-  const daysRemaining = Math.max(
-    0,
-    Math.ceil(
-      (challengeEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    )
-  );
-  const totalChallengeDays = Math.ceil(
-    (challengeEndDate.getTime() - challengeStartDate.getTime()) /
-      (1000 * 60 * 60 * 24)
-  );
-  const daysElapsed = Math.max(
-    0,
-    Math.ceil(
-      (today.getTime() - challengeStartDate.getTime()) / (1000 * 60 * 60 * 24)
-    )
-  );
-  const timeProgressPercent = Math.min(
-    100,
-    Math.max(0, (daysElapsed / totalChallengeDays) * 100)
-  );
 
   // Helper function to calculate projected scores for a user
   const calculateProjectedScore = (
@@ -180,7 +156,7 @@ export default function Leaderboard() {
         <div className="overflow-x-auto">
           <table
             className="w-full divide-y divide-gray-200"
-            style={{ minWidth: showProjectedScores ? "1600px" : "1200px" }}
+            style={{ minWidth: showProjectedScores ? "1460px" : "1060px" }}
           >
             <thead className="bg-gray-50">
               <tr>
@@ -249,12 +225,6 @@ export default function Leaderboard() {
                   <div className="text-xs text-purple-600 mt-1 font-normal">
                     (raw score)
                   </div>
-                </th>
-                <th
-                  className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  style={{ width: "140px" }}
-                >
-                  Days Left
                 </th>
               </tr>
             </thead>
@@ -399,20 +369,6 @@ export default function Leaderboard() {
                           <div>FLS: {Math.round(entry.fatLossScore)}</div>
                           <div>MGS: {Math.round(entry.muscleGainScore)}</div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-center">
-                      <div className="flex flex-col items-center">
-                        <span className="text-sm font-medium text-gray-900">
-                          {daysRemaining} days
-                        </span>
-                        <Progress
-                          value={timeProgressPercent}
-                          className="w-20 h-2 mt-1"
-                        />
-                        <span className="text-xs text-gray-500 mt-1">
-                          {Math.round(timeProgressPercent)}% complete
-                        </span>
                       </div>
                     </td>
                   </tr>
