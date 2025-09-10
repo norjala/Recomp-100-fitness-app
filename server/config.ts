@@ -255,7 +255,34 @@ export function getAdminUsernames(): string[] {
 
 export function getDatabasePath(): string {
   const config = getConfig();
-  const dbUrl = config.DATABASE_URL;
+  let dbUrl = config.DATABASE_URL;
+
+  // Environment-specific database path handling
+  if (config.NODE_ENV === 'production') {
+    // In production, prefer persistent storage paths
+    if (process.env.RENDER && !dbUrl.includes('/opt/render/persistent')) {
+      console.warn('⚠️  Production database not in persistent storage');
+      console.warn(`   Current: ${dbUrl}`);
+      console.warn('   Consider: /opt/render/persistent/data/fitness_challenge.db');
+      
+      // Auto-correct for Render if no explicit path is set
+      if (dbUrl === './data/fitness_challenge.db') {
+        const renderPath = '/opt/render/persistent/data/fitness_challenge.db';
+        console.warn(`   Auto-correcting to: ${renderPath}`);
+        dbUrl = renderPath;
+      }
+    }
+    
+    // Check for other cloud platform specific paths
+    if (process.env.RAILWAY_ENVIRONMENT && !dbUrl.includes('/app/data')) {
+      console.warn('⚠️  Railway deployment detected - consider using /app/data path');
+    }
+    
+    if (process.env.VERCEL && !dbUrl.includes('/tmp/')) {
+      console.warn('⚠️  Vercel deployment detected - database will be ephemeral');
+      console.warn('   Consider using external database service');
+    }
+  }
 
   // If it's already an absolute path, return as-is
   if (path.isAbsolute(dbUrl)) {
@@ -313,4 +340,162 @@ export function getAllowedFileTypes(): string[] {
     .ALLOWED_FILE_TYPES.split(",")
     .map((type) => type.trim())
     .filter((type) => type);
+}
+
+/**
+ * Detect current deployment environment and platform
+ */
+export function getDeploymentEnvironment() {
+  // Check for various cloud platform indicators
+  const environment = {
+    platform: 'local',
+    isPersistent: true,
+    supportsFileSystem: true,
+    recommendedDbPath: './data/fitness_challenge.db',
+    backupPath: './data/backups',
+    warnings: [] as string[]
+  };
+
+  if (process.env.RENDER) {
+    environment.platform = 'render';
+    environment.recommendedDbPath = '/opt/render/persistent/data/fitness_challenge.db';
+    environment.backupPath = '/opt/render/persistent/data/backups';
+    
+    if (!getDatabasePath().includes('/opt/render/persistent')) {
+      environment.isPersistent = false;
+      environment.warnings.push('Database not in persistent storage - data will be lost on deployment');
+    }
+    
+  } else if (process.env.RAILWAY_ENVIRONMENT) {
+    environment.platform = 'railway';
+    environment.recommendedDbPath = '/app/data/fitness_challenge.db';
+    environment.backupPath = '/app/data/backups';
+    
+  } else if (process.env.VERCEL) {
+    environment.platform = 'vercel';
+    environment.isPersistent = false;
+    environment.recommendedDbPath = '/tmp/fitness_challenge.db';
+    environment.backupPath = '/tmp/backups';
+    environment.warnings.push('Vercel has ephemeral filesystem - consider external database');
+    
+  } else if (process.env.HEROKU_APP_NAME) {
+    environment.platform = 'heroku';
+    environment.isPersistent = false;
+    environment.recommendedDbPath = '/tmp/fitness_challenge.db';
+    environment.backupPath = '/tmp/backups';
+    environment.warnings.push('Heroku has ephemeral filesystem - consider external database');
+    
+  } else if (process.env.FLY_APP_NAME) {
+    environment.platform = 'fly';
+    environment.recommendedDbPath = '/data/fitness_challenge.db';
+    environment.backupPath = '/data/backups';
+    
+  } else if (process.env.NODE_ENV === 'production') {
+    environment.platform = 'production-generic';
+    environment.warnings.push('Production environment detected but platform unknown');
+  }
+
+  return environment;
+}
+
+/**
+ * Get environment-specific SQLite optimization settings
+ */
+export function getSQLiteConfig() {
+  const deployEnv = getDeploymentEnvironment();
+  const config = getConfig();
+  
+  const sqliteConfig = {
+    // Base settings
+    journalMode: 'WAL',
+    synchronous: 'NORMAL',
+    cacheSize: 10000,
+    tempStore: 'memory',
+    mmapSize: 268435456, // 256MB
+    
+    // Environment-specific adjustments
+    busyTimeout: 30000,
+    walCheckpointInterval: 1000,
+  };
+
+  // Adjust for different environments
+  if (deployEnv.platform === 'vercel' || deployEnv.platform === 'heroku') {
+    // More aggressive settings for ephemeral platforms
+    sqliteConfig.synchronous = 'OFF';
+    sqliteConfig.tempStore = 'memory';
+    sqliteConfig.busyTimeout = 5000;
+    sqliteConfig.walCheckpointInterval = 100;
+    
+  } else if (deployEnv.platform === 'render' || deployEnv.platform === 'railway') {
+    // Conservative settings for persistent platforms
+    sqliteConfig.synchronous = 'NORMAL';
+    sqliteConfig.busyTimeout = 30000;
+    sqliteConfig.walCheckpointInterval = 1000;
+    
+  } else if (config.NODE_ENV === 'development') {
+    // Development optimizations
+    sqliteConfig.synchronous = 'NORMAL';
+    sqliteConfig.cacheSize = 5000;
+    sqliteConfig.busyTimeout = 10000;
+  }
+
+  return sqliteConfig;
+}
+
+/**
+ * Validate database configuration for current environment
+ */
+export function validateDatabaseConfiguration(): {
+  isValid: boolean;
+  warnings: string[];
+  recommendations: string[];
+} {
+  const config = getConfig();
+  const deployEnv = getDeploymentEnvironment();
+  const dbPath = getDatabasePath();
+  
+  const validation = {
+    isValid: true,
+    warnings: [...deployEnv.warnings],
+    recommendations: [] as string[]
+  };
+
+  // Check persistence in production
+  if (config.NODE_ENV === 'production' && !deployEnv.isPersistent) {
+    validation.warnings.push('Database will not persist across deployments');
+    validation.recommendations.push('Consider using external database service or persistent storage');
+  }
+
+  // Check path appropriateness for platform
+  if (deployEnv.platform === 'render' && !dbPath.includes('/opt/render/persistent')) {
+    validation.warnings.push('Database not in Render persistent storage');
+    validation.recommendations.push(`Set DATABASE_URL=${deployEnv.recommendedDbPath}`);
+  }
+
+  if (deployEnv.platform === 'railway' && !dbPath.includes('/app')) {
+    validation.recommendations.push(`Consider DATABASE_URL=${deployEnv.recommendedDbPath} for Railway`);
+  }
+
+  // Check backup path
+  const backupDir = path.dirname(dbPath);
+  if (!deployEnv.supportsFileSystem) {
+    validation.warnings.push('Platform may not support file system backups');
+    validation.recommendations.push('Configure external backup service');
+  }
+
+  // File system permissions check
+  if (config.NODE_ENV === 'production') {
+    try {
+      const dbDir = path.dirname(dbPath);
+      if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
+        validation.recommendations.push('Database directory created successfully');
+      }
+    } catch (error) {
+      validation.isValid = false;
+      validation.warnings.push(`Cannot create database directory: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  return validation;
 }

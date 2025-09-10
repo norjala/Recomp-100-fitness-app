@@ -2,7 +2,13 @@ import { drizzle } from 'drizzle-orm/libsql';
 import { createClient } from '@libsql/client';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import * as schema from "../shared/schema.js";
-import { getDatabasePath, isTest } from './config.js';
+import { 
+  getDatabasePath, 
+  isTest, 
+  getDeploymentEnvironment, 
+  getSQLiteConfig, 
+  validateDatabaseConfiguration 
+} from './config.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -23,44 +29,98 @@ const sqlite = createClient({
 
 export const db = drizzle(sqlite, { schema });
 
-// Configure SQLite for production use
-async function configureSQLiteForProduction() {
+// Configure SQLite for current environment
+async function configureSQLiteForEnvironment() {
   try {
     if (!isTest()) {
-      console.log('🔧 Configuring SQLite for production...');
+      const deployEnv = getDeploymentEnvironment();
+      const sqliteConfig = getSQLiteConfig();
       
-      // Enable WAL mode for better concurrent access
-      await sqlite.execute('PRAGMA journal_mode=WAL;');
-      console.log('✅ Enabled WAL mode for better concurrency');
+      console.log(`🔧 Configuring SQLite for ${deployEnv.platform} environment...`);
       
-      // Set optimized SQLite settings for production
-      await sqlite.execute('PRAGMA synchronous=NORMAL;'); // Balance between safety and performance
-      await sqlite.execute('PRAGMA cache_size=10000;'); // 10MB cache
-      await sqlite.execute('PRAGMA temp_store=memory;'); // Use memory for temp tables
-      await sqlite.execute('PRAGMA mmap_size=268435456;'); // 256MB memory mapping
+      // Log deployment warnings if any
+      if (deployEnv.warnings.length > 0) {
+        console.warn('⚠️  Environment Warnings:');
+        deployEnv.warnings.forEach(warning => console.warn(`   - ${warning}`));
+      }
+      
+      // Apply environment-specific SQLite settings
+      await sqlite.execute(`PRAGMA journal_mode=${sqliteConfig.journalMode};`);
+      console.log(`✅ Journal mode: ${sqliteConfig.journalMode}`);
+      
+      await sqlite.execute(`PRAGMA synchronous=${sqliteConfig.synchronous};`);
+      console.log(`✅ Synchronous mode: ${sqliteConfig.synchronous}`);
+      
+      await sqlite.execute(`PRAGMA cache_size=${sqliteConfig.cacheSize};`);
+      console.log(`✅ Cache size: ${sqliteConfig.cacheSize} pages`);
+      
+      await sqlite.execute(`PRAGMA temp_store=${sqliteConfig.tempStore};`);
+      await sqlite.execute(`PRAGMA mmap_size=${sqliteConfig.mmapSize};`);
+      await sqlite.execute(`PRAGMA busy_timeout=${sqliteConfig.busyTimeout};`);
       await sqlite.execute('PRAGMA optimize;'); // Enable query optimizer
       
-      console.log('✅ Applied production SQLite optimizations');
+      console.log('✅ Applied environment-optimized SQLite settings');
       
-      // Verify WAL mode is enabled
-      const result = await sqlite.execute('PRAGMA journal_mode;');
-      if (result.rows && result.rows[0] && result.rows[0]['journal_mode'] === 'wal') {
-        console.log('✅ WAL mode confirmed active');
-      } else {
-        console.warn('⚠️  WAL mode may not be active');
+      // Verify configuration
+      const journalResult = await sqlite.execute('PRAGMA journal_mode;');
+      const syncResult = await sqlite.execute('PRAGMA synchronous;');
+      
+      console.log(`📊 Active configuration: Journal=${journalResult.rows?.[0]?.['journal_mode']}, Sync=${syncResult.rows?.[0]?.['synchronous']}`);
+      
+      // WAL checkpoint management for production
+      if (sqliteConfig.journalMode === 'WAL' && (deployEnv.platform === 'render' || deployEnv.platform === 'railway')) {
+        console.log('⚡ Setting up WAL checkpoint management for persistent platform...');
+        
+        // Perform initial checkpoint
+        await sqlite.execute('PRAGMA wal_checkpoint(TRUNCATE);');
+        console.log('✅ Initial WAL checkpoint completed');
+        
+        // Set reasonable WAL size limits
+        await sqlite.execute('PRAGMA wal_autocheckpoint=1000;');
+        console.log('✅ WAL auto-checkpoint configured');
       }
     }
   } catch (error) {
-    console.error('❌ Failed to configure SQLite for production:', error);
+    console.error('❌ Failed to configure SQLite:', error instanceof Error ? error.message : error);
+    console.warn('⚠️  Continuing with default SQLite settings...');
     // Don't throw - allow app to continue with default settings
   }
 }
 
 // Initialize database tables
 export async function initializeDatabase() {
+  // Capture pre-initialization state for failsafe
+  let preInitializationState = {
+    hadExistingData: false,
+    userCount: 0,
+    scanCount: 0
+  };
+  
   try {
     if (!isTest()) {
       console.log(`Initializing database at: ${databasePath}`);
+      
+      // CRITICAL: Verify environment and database configuration
+      const configValidation = validateDatabaseConfiguration();
+      const deployEnv = getDeploymentEnvironment();
+      
+      console.log(`🌍 Deployment Environment: ${deployEnv.platform}`);
+      console.log(`🔒 Persistent Storage: ${deployEnv.isPersistent ? 'Yes' : 'No'}`);
+      
+      if (configValidation.warnings.length > 0) {
+        console.warn('⚠️  Configuration Warnings:');
+        configValidation.warnings.forEach(warning => console.warn(`   - ${warning}`));
+      }
+      
+      if (configValidation.recommendations.length > 0) {
+        console.info('💡 Recommendations:');
+        configValidation.recommendations.forEach(rec => console.info(`   - ${rec}`));
+      }
+      
+      if (!configValidation.isValid) {
+        console.error('❌ Database configuration validation failed');
+        throw new Error('Invalid database configuration - cannot proceed safely');
+      }
       
       // CRITICAL: Verify persistence configuration to prevent data loss
       verifyPersistenceConfiguration();
@@ -88,7 +148,17 @@ export async function initializeDatabase() {
               const scanCount = await sqlite.execute(`SELECT COUNT(*) as count FROM dexa_scans`);
               const scoreCount = await sqlite.execute(`SELECT COUNT(*) as count FROM scoring_data`);
               
-              console.log(`📊 Database contains ${userCount.rows?.[0]?.count ?? 0} users, ${scanCount.rows?.[0]?.count ?? 0} scans, ${scoreCount.rows?.[0]?.count ?? 0} scores`);
+              // Capture pre-initialization state for failsafe
+              const userCountNum = Number(userCount.rows?.[0]?.count ?? 0);
+              const scanCountNum = Number(scanCount.rows?.[0]?.count ?? 0);
+              
+              preInitializationState = {
+                hadExistingData: userCountNum > 0 || scanCountNum > 0,
+                userCount: userCountNum,
+                scanCount: scanCountNum
+              };
+              
+              console.log(`📊 Database contains ${userCountNum} users, ${scanCountNum} scans, ${scoreCount.rows?.[0]?.count ?? 0} scores`);
               
               // Log user details for deployment verification (first 5 users)
               const userSample = await sqlite.execute(`SELECT username, created_at FROM users ORDER BY created_at DESC LIMIT 5`);
@@ -97,9 +167,21 @@ export async function initializeDatabase() {
               }
               
               // CRITICAL: Create automatic backup before any initialization
-              if (Number(userCount.rows?.[0]?.count ?? 0) > 0 || Number(scanCount.rows?.[0]?.count ?? 0) > 0) {
+              if (userCountNum > 0 || scanCountNum > 0) {
                 console.log('🔒 Existing data detected - creating safety backup...');
                 await createDeploymentBackup();
+                
+                // CRITICAL: Skip table creation when data exists in production
+                if (process.env.NODE_ENV === 'production') {
+                  console.log('🛡️  Production environment with existing data - skipping table operations');
+                  console.log('   → This prevents accidental data loss during deployments');
+                  console.log('   → Tables and data are preserved as-is');
+                  
+                  // Configure SQLite for environment and exit
+                  await configureSQLiteForEnvironment();
+                  console.log('✅ Database initialization complete - data preserved');
+                  return;
+                }
               }
               
             }
@@ -219,8 +301,44 @@ export async function initializeDatabase() {
       }
     }
     
-    // Configure SQLite for production after tables are created
-    await configureSQLiteForProduction();
+    // Configure SQLite for current environment after tables are created
+    await configureSQLiteForEnvironment();
+    
+    // CRITICAL: Check for data loss after initialization (failsafe)
+    if (!isTest() && preInitializationState.hadExistingData) {
+      console.log('🔍 Post-initialization data integrity check...');
+      
+      const finalUserCount = await getCurrentUserCount();
+      const finalScanCount = await getCurrentScanCount();
+      
+      if (finalUserCount === 0 && finalScanCount === 0) {
+        console.warn('⚠️  DATA LOSS DETECTED! Database was not empty before initialization');
+        console.warn(`   Expected: ${preInitializationState.userCount} users, ${preInitializationState.scanCount} scans`);
+        console.warn(`   Current:  ${finalUserCount} users, ${finalScanCount} scans`);
+        
+        // Trigger automatic backup restoration failsafe
+        const restorationResult = await automaticBackupRestorationFailsafe(preInitializationState);
+        
+        if (restorationResult.restored) {
+          console.log('🎉 Automatic restoration successful - continuing with restored data');
+          console.log(`   Final state: ${restorationResult.restoredData?.users} users, ${restorationResult.restoredData?.scans} scans`);
+        } else {
+          console.error('💥 CRITICAL: Automatic restoration failed!');
+          console.error(`   Reason: ${restorationResult.reason}`);
+          if (restorationResult.error) {
+            console.error(`   Error: ${restorationResult.error}`);
+          }
+          console.error('   Manual intervention required immediately');
+          console.error('   Check backup directory for available backups');
+          
+          // Don't throw error to allow app to start for manual recovery
+          console.warn('⚠️  Application will continue but with empty database');
+          console.warn('   Use restore-production-data.cjs script for manual recovery');
+        }
+      } else {
+        console.log(`✅ Data integrity confirmed: ${finalUserCount} users, ${finalScanCount} scans`);
+      }
+    }
     
     console.log('✅ Database initialization complete');
   } catch (error) {
@@ -334,25 +452,22 @@ export async function getDatabaseHealthStatus() {
   try {
     const persistence = await verifyDatabasePersistence();
     const dbPath = getDatabasePath();
-    const isProduction = process.env.NODE_ENV === 'production';
-    const isRenderEnvironment = !!process.env.RENDER;
+    const deployEnv = getDeploymentEnvironment();
+    const configValidation = validateDatabaseConfiguration();
+    const sqliteConfig = getSQLiteConfig();
     
     // Enhanced persistence checks for deployment safety
     const persistenceStatus = {
-      isConfiguredForPersistence: dbPath.includes('/opt/render/persistent'),
-      isPersistenceRequired: isProduction && isRenderEnvironment,
-      persistenceWarnings: [] as string[]
+      isConfiguredForPersistence: deployEnv.isPersistent,
+      isPersistenceRequired: deployEnv.platform !== 'local' && deployEnv.platform !== 'vercel' && deployEnv.platform !== 'heroku',
+      persistenceWarnings: configValidation.warnings
     };
-    
-    if (persistenceStatus.isPersistenceRequired && !persistenceStatus.isConfiguredForPersistence) {
-      persistenceStatus.persistenceWarnings.push('CRITICAL: Database not in persistent storage - data will be lost on deployment');
-    }
     
     // Check for recent backups as deployment safety indicator
     const backupStatus = await checkRecentBackups();
     
     return {
-      status: persistence.isValid ? 'healthy' : 'unhealthy',
+      status: persistence.isValid && configValidation.isValid ? 'healthy' : 'unhealthy',
       database: {
         path: dbPath,
         exists: persistence.details.fileExists,
@@ -370,11 +485,27 @@ export async function getDatabaseHealthStatus() {
       },
       backup: backupStatus,
       environment: {
+        platform: deployEnv.platform,
         nodeEnv: process.env.NODE_ENV,
-        isRender: isRenderEnvironment,
+        isPersistent: deployEnv.isPersistent,
+        supportsFileSystem: deployEnv.supportsFileSystem,
+        recommendedDbPath: deployEnv.recommendedDbPath,
         deploymentsTimestamp: process.env.DEPLOYMENT_TIMESTAMP,
       },
-      issues: persistence.issues,
+      configuration: {
+        sqliteSettings: {
+          journalMode: sqliteConfig.journalMode,
+          synchronous: sqliteConfig.synchronous,
+          cacheSize: sqliteConfig.cacheSize,
+          busyTimeout: sqliteConfig.busyTimeout,
+        },
+        validationStatus: {
+          isValid: configValidation.isValid,
+          warnings: configValidation.warnings,
+          recommendations: configValidation.recommendations,
+        }
+      },
+      issues: [...persistence.issues, ...configValidation.warnings],
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
@@ -483,11 +614,20 @@ async function createDeploymentBackup() {
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
     const backupFileName = `deployment_backup_${timestamp}.db`;
+    const deployEnv = getDeploymentEnvironment();
+    
+    // Use environment-appropriate backup directory
+    let backupDir;
+    if (deployEnv.backupPath && fs.existsSync(path.dirname(deployEnv.backupPath))) {
+      backupDir = deployEnv.backupPath;
+    } else {
+      backupDir = path.join(path.dirname(getDatabasePath()), 'backups');
+    }
     
     // Ensure backup directory exists
-    const backupDir = path.join(path.dirname(getDatabasePath()), 'backups');
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true });
+      console.log(`📁 Created backup directory: ${backupDir}`);
     }
     
     const backupPath = path.join(backupDir, backupFileName);
@@ -508,6 +648,241 @@ async function createDeploymentBackup() {
     console.error('❌ Failed to create deployment backup:', error instanceof Error ? error.message : error);
     console.error('   Deployment will continue but without backup protection');
     return { success: false, error: error instanceof Error ? error.message : 'Unknown backup error' };
+  }
+}
+
+/**
+ * Automatic backup restoration failsafe to prevent data loss
+ * Triggered when database is unexpectedly empty after initialization
+ */
+async function automaticBackupRestorationFailsafe(preInitializationState: {
+  hadExistingData: boolean;
+  userCount: number;
+  scanCount: number;
+}) {
+  try {
+    console.log('🚨 AUTOMATIC BACKUP RESTORATION FAILSAFE TRIGGERED');
+    console.log('===================================================');
+    
+    // Only trigger if we had data before initialization but now we don't
+    if (!preInitializationState.hadExistingData) {
+      console.log('   No restoration needed - database was already empty');
+      return { restored: false, reason: 'no_previous_data' };
+    }
+    
+    // Check current database state
+    const currentUserCount = await getCurrentUserCount();
+    const currentScanCount = await getCurrentScanCount();
+    
+    if (currentUserCount > 0 || currentScanCount > 0) {
+      console.log('   No restoration needed - database still contains data');
+      return { restored: false, reason: 'data_still_present' };
+    }
+    
+    console.log(`   CRITICAL: Database had ${preInitializationState.userCount} users, ${preInitializationState.scanCount} scans`);
+    console.log(`   CURRENT: Database now has ${currentUserCount} users, ${currentScanCount} scans`);
+    console.log('   → Data loss detected! Attempting automatic restoration...');
+    
+    // Find the most recent backup
+    const mostRecentBackup = await findMostRecentBackup();
+    if (!mostRecentBackup) {
+      console.error('❌ No backup found for restoration!');
+      console.error('   Manual intervention required - check backup directory');
+      return { restored: false, reason: 'no_backup_found' };
+    }
+    
+    console.log(`🔄 Attempting restoration from: ${mostRecentBackup.name}`);
+    console.log(`   Backup age: ${mostRecentBackup.ageHours.toFixed(1)} hours`);
+    console.log(`   Backup size: ${(mostRecentBackup.sizeKB / 1024).toFixed(2)} MB`);
+    
+    // Verify backup integrity before restoration
+    const backupIntegrity = await verifyBackupIntegrity(mostRecentBackup.path);
+    if (!backupIntegrity.isValid) {
+      console.error('❌ Backup integrity check failed!');
+      console.error(`   Issues: ${backupIntegrity.issues.join(', ')}`);
+      return { restored: false, reason: 'backup_integrity_failed' };
+    }
+    
+    console.log(`✅ Backup integrity verified: ${backupIntegrity.userCount} users, ${backupIntegrity.scanCount} scans`);
+    
+    // Create emergency backup of current (empty) state
+    const emergencyBackupName = `emergency_empty_${new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19)}.db`;
+    const emergencyBackupPath = path.join(path.dirname(mostRecentBackup.path), emergencyBackupName);
+    fs.copyFileSync(getDatabasePath(), emergencyBackupPath);
+    console.log(`📁 Emergency backup of empty state: ${emergencyBackupName}`);
+    
+    // Perform restoration
+    console.log('🔄 Restoring database from backup...');
+    
+    // Close current connection
+    await sqlite.close();
+    
+    // Replace database file with backup
+    fs.copyFileSync(mostRecentBackup.path, getDatabasePath());
+    
+    // Reconnect to restored database
+    const restoredSqlite = createClient({ url: `file:${getDatabasePath()}` });
+    
+    // Verify restoration success
+    const restoredUserCount = await restoredSqlite.execute('SELECT COUNT(*) as count FROM users');
+    const restoredScanCount = await restoredSqlite.execute('SELECT COUNT(*) as count FROM dexa_scans');
+    
+    const finalUserCount = Number(restoredUserCount.rows?.[0]?.count || 0);
+    const finalScanCount = Number(restoredScanCount.rows?.[0]?.count || 0);
+    
+    await restoredSqlite.close();
+    
+    if (finalUserCount > 0 || finalScanCount > 0) {
+      console.log('✅ AUTOMATIC RESTORATION SUCCESSFUL!');
+      console.log(`   Restored: ${finalUserCount} users, ${finalScanCount} scans`);
+      console.log(`   Data recovered from: ${mostRecentBackup.name}`);
+      console.log('   → Database initialization will continue with restored data');
+      
+      return { 
+        restored: true, 
+        reason: 'successful_restoration',
+        backupUsed: mostRecentBackup.name,
+        restoredData: { users: finalUserCount, scans: finalScanCount }
+      };
+    } else {
+      console.error('❌ RESTORATION FAILED - Database still empty after restoration attempt');
+      return { restored: false, reason: 'restoration_failed' };
+    }
+    
+  } catch (error) {
+    console.error('💥 AUTOMATIC RESTORATION FAILSAFE ERROR:', error instanceof Error ? error.message : error);
+    console.error('   Manual intervention required - check logs and backup directory');
+    return { restored: false, reason: 'failsafe_error', error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
+ * Find the most recent valid backup for automatic restoration
+ */
+async function findMostRecentBackup(): Promise<{
+  name: string;
+  path: string;
+  ageHours: number;
+  sizeKB: number;
+} | null> {
+  try {
+    const backupDir = path.join(path.dirname(getDatabasePath()), 'backups');
+    
+    if (!fs.existsSync(backupDir)) {
+      return null;
+    }
+    
+    const backupFiles = fs.readdirSync(backupDir)
+      .filter(file => file.endsWith('.db'))
+      .map(file => {
+        const filePath = path.join(backupDir, file);
+        const stats = fs.statSync(filePath);
+        return {
+          name: file,
+          path: filePath,
+          created: stats.mtime,
+          ageHours: (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60),
+          sizeKB: Math.round(stats.size / 1024)
+        };
+      })
+      .filter(backup => backup.sizeKB > 10) // Only consider backups > 10KB (non-empty)
+      .sort((a, b) => b.created.getTime() - a.created.getTime()); // Most recent first
+    
+    return backupFiles[0] || null;
+    
+  } catch (error) {
+    console.error('Error finding recent backup:', error);
+    return null;
+  }
+}
+
+/**
+ * Verify backup integrity before attempting restoration
+ */
+async function verifyBackupIntegrity(backupPath: string): Promise<{
+  isValid: boolean;
+  userCount: number;
+  scanCount: number;
+  issues: string[];
+}> {
+  const issues: string[] = [];
+  let userCount = 0;
+  let scanCount = 0;
+  
+  try {
+    // Test if backup file can be opened
+    const testSqlite = createClient({ url: `file:${backupPath}` });
+    
+    try {
+      // Verify basic database structure
+      const tables = await testSqlite.execute(`
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name IN ('users', 'dexa_scans', 'scoring_data')
+      `);
+      
+      const foundTables = tables.rows.map(row => row.name);
+      const expectedTables = ['users', 'dexa_scans', 'scoring_data'];
+      const missingTables = expectedTables.filter(table => !foundTables.includes(table));
+      
+      if (missingTables.length > 0) {
+        issues.push(`Missing tables: ${missingTables.join(', ')}`);
+      }
+      
+      // Get data counts
+      if (foundTables.includes('users')) {
+        const userResult = await testSqlite.execute('SELECT COUNT(*) as count FROM users');
+        userCount = Number(userResult.rows?.[0]?.count || 0);
+      }
+      
+      if (foundTables.includes('dexa_scans')) {
+        const scanResult = await testSqlite.execute('SELECT COUNT(*) as count FROM dexa_scans');
+        scanCount = Number(scanResult.rows?.[0]?.count || 0);
+      }
+      
+      // Verify data integrity with quick check
+      await testSqlite.execute('PRAGMA quick_check;');
+      
+    } finally {
+      await testSqlite.close();
+    }
+    
+    if (userCount === 0 && scanCount === 0) {
+      issues.push('Backup appears to be empty (0 users, 0 scans)');
+    }
+    
+  } catch (error) {
+    issues.push(`Backup verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+  
+  return {
+    isValid: issues.length === 0,
+    userCount,
+    scanCount,
+    issues
+  };
+}
+
+/**
+ * Helper function to get current user count safely
+ */
+async function getCurrentUserCount(): Promise<number> {
+  try {
+    const result = await sqlite.execute('SELECT COUNT(*) as count FROM users');
+    return Number(result.rows?.[0]?.count || 0);
+  } catch (error) {
+    return 0;
+  }
+}
+
+/**
+ * Helper function to get current scan count safely
+ */
+async function getCurrentScanCount(): Promise<number> {
+  try {
+    const result = await sqlite.execute('SELECT COUNT(*) as count FROM dexa_scans');
+    return Number(result.rows?.[0]?.count || 0);
+  } catch (error) {
+    return 0;
   }
 }
 

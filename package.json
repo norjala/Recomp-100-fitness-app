@@ -53,12 +53,17 @@
     "audit:critical": "node scripts/audit-analysis.cjs critical",
     "deploy:check": "node scripts/pre-deployment-check.cjs",
     "deploy:safe": "npm run deploy:check && npm run db:backup:safe",
+    "recover:data": "node scripts/restore-production-data.cjs",
     "db:migrate:production": "node scripts/migrate-db.mjs",
     "seed:test-users": "tsx --experimental-specifier-resolution=node scripts/seed-test-users.ts",
     "seed:cleanup": "tsx --experimental-specifier-resolution=node scripts/seed-test-users.ts --cleanup",
     "seed:reset": "tsx --experimental-specifier-resolution=node scripts/seed-test-users.ts --reset",
     "scores:recalculate": "tsx --experimental-specifier-resolution=node scripts/recalculate-scores.ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "verify:deployment": "node scripts/deployment-verification.mjs",
+    "verify:health": "curl -f http://localhost:5000/api/health || echo 'Health check failed'",
+    "test:persistence": "node scripts/test-data-persistence.mjs",
+    "fix:permissions": "chmod +x scripts/*.mjs scripts/*.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -147,11 +147,36 @@ export function setupAuth(app: Express) {
   });
 }
 
-export const requireAuth: RequestHandler = (req: any, res, next) => {
-  const user = (req.session as any)?.user;
-  if (!user) {
+export const requireAuth: RequestHandler = async (req: any, res, next) => {
+  const sessionUser = (req.session as any)?.user;
+  if (!sessionUser) {
     return res.status(401).json({ message: "Authentication required" });
   }
-  req.user = user;
-  next();
+
+  try {
+    // CRITICAL: Verify user still exists in database
+    // This prevents the user/database mismatch issue after deployments
+    const dbUser = await storage.getUser(sessionUser.id);
+    if (!dbUser) {
+      // User in session doesn't exist in database - clear session
+      req.session.destroy((err) => {
+        if (err) console.error("Session destruction error:", err);
+      });
+      return res.status(401).json({ 
+        message: "User session is invalid. Please log out and log in again.",
+        code: "USER_NOT_IN_DATABASE"
+      });
+    }
+    
+    // Update req.user with fresh data from database
+    const { password: _, ...userWithoutPassword } = dbUser;
+    req.user = userWithoutPassword;
+    next();
+  } catch (error) {
+    console.error("User verification error:", error);
+    return res.status(500).json({ 
+      message: "Unable to verify user session. Please try again.",
+      code: "USER_VERIFICATION_FAILED" 
+    });
+  }
 };
