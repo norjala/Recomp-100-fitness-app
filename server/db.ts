@@ -62,15 +62,18 @@ export async function initializeDatabase() {
     if (!isTest()) {
       console.log(`Initializing database at: ${databasePath}`);
       
+      // CRITICAL: Verify persistence configuration to prevent data loss
+      verifyPersistenceConfiguration();
+      
       // Check if database file exists and has content
       if (fs.existsSync(databasePath)) {
         const stats = fs.statSync(databasePath);
         const sizeInMB = (stats.size / (1024 * 1024)).toFixed(2);
         
         if (stats.size > 0) {
-          console.log(`✅ Using existing database (${sizeInMB} MB)`);
+          console.log(`✅ Using existing database (${sizeInMB} MB) - PRESERVING USER DATA`);
           
-          // Check if tables exist
+          // Check if tables exist and log data counts for verification
           try {
             const result = await sqlite.execute(`
               SELECT name FROM sqlite_master 
@@ -80,10 +83,25 @@ export async function initializeDatabase() {
             if (result.rows && result.rows.length > 0) {
               console.log(`✅ Found existing tables: ${result.rows.map(r => r.name).join(', ')}`);
               
-              // Get user count
+              // Get comprehensive data counts for deployment verification
               const userCount = await sqlite.execute(`SELECT COUNT(*) as count FROM users`);
               const scanCount = await sqlite.execute(`SELECT COUNT(*) as count FROM dexa_scans`);
-              console.log(`📊 Database contains ${userCount.rows[0].count} users and ${scanCount.rows[0].count} scans`);
+              const scoreCount = await sqlite.execute(`SELECT COUNT(*) as count FROM scoring_data`);
+              
+              console.log(`📊 Database contains ${userCount.rows[0].count} users, ${scanCount.rows[0].count} scans, ${scoreCount.rows[0].count} scores`);
+              
+              // Log user details for deployment verification (first 5 users)
+              const userSample = await sqlite.execute(`SELECT username, created_at FROM users ORDER BY created_at DESC LIMIT 5`);
+              if (userSample.rows && userSample.rows.length > 0) {
+                console.log(`👥 Recent users: ${userSample.rows.map(u => u.username).join(', ')}`);
+              }
+              
+              // CRITICAL: Create automatic backup before any initialization
+              if (userCount.rows[0].count > 0 || scanCount.rows[0].count > 0) {
+                console.log('🔒 Existing data detected - creating safety backup...');
+                await createDeploymentBackup();
+              }
+              
             }
           } catch (e) {
             console.log('📝 Tables will be created if they don\'t exist');
@@ -311,11 +329,27 @@ export async function verifyDatabasePersistence(): Promise<{
   return { isValid, details, issues };
 }
 
-// Enhanced database health check for monitoring
+// Enhanced database health check for monitoring and deployment verification
 export async function getDatabaseHealthStatus() {
   try {
     const persistence = await verifyDatabasePersistence();
     const dbPath = getDatabasePath();
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isRenderEnvironment = !!process.env.RENDER;
+    
+    // Enhanced persistence checks for deployment safety
+    const persistenceStatus = {
+      isConfiguredForPersistence: dbPath.includes('/opt/render/persistent'),
+      isPersistenceRequired: isProduction && isRenderEnvironment,
+      persistenceWarnings: [] as string[]
+    };
+    
+    if (persistenceStatus.isPersistenceRequired && !persistenceStatus.isConfiguredForPersistence) {
+      persistenceStatus.persistenceWarnings.push('CRITICAL: Database not in persistent storage - data will be lost on deployment');
+    }
+    
+    // Check for recent backups as deployment safety indicator
+    const backupStatus = await checkRecentBackups();
     
     return {
       status: persistence.isValid ? 'healthy' : 'unhealthy',
@@ -328,10 +362,17 @@ export async function getDatabaseHealthStatus() {
         readable: persistence.details.isReadable,
         writable: persistence.details.isWritable,
       },
+      persistence: persistenceStatus,
       data: {
         users: persistence.details.userCount,
         scans: persistence.details.scanCount,
         scores: persistence.details.scoreCount,
+      },
+      backup: backupStatus,
+      environment: {
+        nodeEnv: process.env.NODE_ENV,
+        isRender: isRenderEnvironment,
+        deploymentsTimestamp: process.env.DEPLOYMENT_TIMESTAMP,
       },
       issues: persistence.issues,
       timestamp: new Date().toISOString(),
@@ -342,6 +383,131 @@ export async function getDatabaseHealthStatus() {
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString(),
     };
+  }
+}
+
+/**
+ * Check for recent backups to verify deployment safety
+ */
+async function checkRecentBackups() {
+  try {
+    const backupDir = path.join(path.dirname(getDatabasePath()), 'backups');
+    
+    if (!fs.existsSync(backupDir)) {
+      return {
+        hasRecentBackup: false,
+        backupCount: 0,
+        warning: 'No backup directory found'
+      };
+    }
+    
+    const backupFiles = fs.readdirSync(backupDir)
+      .filter(file => file.endsWith('.db'))
+      .map(file => {
+        const filePath = path.join(backupDir, file);
+        const stats = fs.statSync(filePath);
+        return {
+          name: file,
+          created: stats.mtime,
+          ageHours: (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60)
+        };
+      })
+      .sort((a, b) => b.created.getTime() - a.created.getTime());
+    
+    const recentBackup = backupFiles.find(backup => backup.ageHours < 24);
+    
+    return {
+      hasRecentBackup: !!recentBackup,
+      backupCount: backupFiles.length,
+      mostRecentBackup: backupFiles[0]?.name || null,
+      mostRecentAge: backupFiles[0]?.ageHours.toFixed(1) || null,
+      warning: !recentBackup ? 'No backup created in last 24 hours' : null
+    };
+    
+  } catch (error) {
+    return {
+      hasRecentBackup: false,
+      backupCount: 0,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Verify persistence configuration to prevent data loss during deployments
+ */
+function verifyPersistenceConfiguration() {
+  const dbPath = getDatabasePath();
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isRenderEnvironment = !!process.env.RENDER;
+  
+  console.log('🔍 PERSISTENCE VERIFICATION:');
+  console.log(`   Environment: ${process.env.NODE_ENV}`);
+  console.log(`   Render Environment: ${isRenderEnvironment ? 'Yes' : 'No'}`);
+  console.log(`   Database Path: ${dbPath}`);
+  
+  if (isProduction && isRenderEnvironment) {
+    // In production on Render, database MUST be in persistent storage
+    if (!dbPath.includes('/opt/render/persistent')) {
+      console.error('🚨 CRITICAL DATA LOSS RISK: Database not in persistent storage!');
+      console.error(`   Current path: ${dbPath}`);
+      console.error(`   Required path: /opt/render/persistent/data/fitness_challenge.db`);
+      console.error('   ❌ USER DATA WILL BE LOST ON DEPLOYMENT!');
+      console.error('');
+      console.error('   Fix: Set DATABASE_URL=/opt/render/persistent/data/fitness_challenge.db');
+      console.error('   in Render Dashboard Environment Variables');
+      throw new Error('Database not configured for persistent storage - refusing to start');
+    } else {
+      console.log('✅ Database is properly configured for persistent storage');
+      console.log('   → User data will survive deployments and restarts');
+    }
+  } else if (isProduction) {
+    console.warn('⚠️  Production environment but not on Render - verify persistence manually');
+  } else {
+    console.log('✅ Development environment - using local database');
+  }
+  
+  // Check uploads directory persistence
+  const uploadsDir = process.env.UPLOADS_DIR;
+  if (isProduction && isRenderEnvironment && uploadsDir && !uploadsDir.includes('/opt/render/persistent')) {
+    console.warn('⚠️  Uploads directory not in persistent storage - files may be lost');
+    console.warn(`   Current: ${uploadsDir}`);
+    console.warn(`   Recommended: /opt/render/persistent/uploads`);
+  }
+}
+
+/**
+ * Create deployment backup automatically when existing data is detected
+ */
+async function createDeploymentBackup() {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
+    const backupFileName = `deployment_backup_${timestamp}.db`;
+    
+    // Ensure backup directory exists
+    const backupDir = path.join(path.dirname(getDatabasePath()), 'backups');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+    
+    const backupPath = path.join(backupDir, backupFileName);
+    
+    // Create backup using SQLite backup command
+    await sqlite.execute(`VACUUM INTO '${backupPath}'`);
+    
+    // Verify backup
+    const stats = fs.statSync(backupPath);
+    const sizeKB = Math.round(stats.size / 1024);
+    
+    console.log(`✅ Deployment backup created: ${backupFileName} (${sizeKB} KB)`);
+    console.log(`   Location: ${backupPath}`);
+    
+    return { success: true, path: backupPath, size: sizeKB };
+    
+  } catch (error) {
+    console.error('❌ Failed to create deployment backup:', error.message);
+    console.error('   Deployment will continue but without backup protection');
+    return { success: false, error: error.message };
   }
 }
 

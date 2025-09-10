@@ -1,5 +1,5 @@
 // Jest setup for backend tests
-import { jest } from '@jest/globals';
+import { jest, beforeEach } from '@jest/globals';
 
 // Mock console methods in tests to reduce noise
 const originalConsoleError = console.error;

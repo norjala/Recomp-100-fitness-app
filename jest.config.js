@@ -20,7 +20,7 @@ export default {
       }
     }]
   },
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@shared/(.*)$': '<rootDir>/shared/$1'
   },
   setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.ts'],

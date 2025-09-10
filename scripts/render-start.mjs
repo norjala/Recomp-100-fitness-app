@@ -137,9 +137,18 @@ const uploadsDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads'
 const isPersistent = databasePath.includes('/opt/render/persistent') && uploadsDir.includes('/opt/render/persistent');
 if (isPersistent) {
   console.log('✅ Using persistent storage - data will survive deployments');
+  console.log('   → This configuration prevents data loss like the Jackie incident');
 } else {
-  console.warn('⚠️  Using local storage - data will be lost on deployment');
-  hasWarning = true;
+  console.error('🚨 CRITICAL DATA LOSS RISK: Using local storage - data will be lost on deployment');
+  console.error('   → This is the same type of issue that caused Jackie\'s data loss');
+  console.error('   → USER ACCOUNTS AND SCANS WILL BE WIPED ON NEXT DEPLOYMENT');
+  console.error('');
+  console.error('   🔧 IMMEDIATE FIX REQUIRED:');
+  console.error('   1. Set DATABASE_URL=/opt/render/persistent/data/fitness_challenge.db');
+  console.error('   2. Set UPLOADS_DIR=/opt/render/persistent/uploads');
+  console.error('   3. Verify persistent disk is mounted at /opt/render/persistent');
+  console.error('');
+  hasError = true; // Elevate this to an error to prevent startup
 }
 
 console.log(`📊 Database path: ${databasePath}`);
