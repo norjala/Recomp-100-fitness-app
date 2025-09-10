@@ -88,7 +88,7 @@ export async function initializeDatabase() {
               const scanCount = await sqlite.execute(`SELECT COUNT(*) as count FROM dexa_scans`);
               const scoreCount = await sqlite.execute(`SELECT COUNT(*) as count FROM scoring_data`);
               
-              console.log(`📊 Database contains ${userCount.rows[0].count} users, ${scanCount.rows[0].count} scans, ${scoreCount.rows[0].count} scores`);
+              console.log(`📊 Database contains ${userCount.rows?.[0]?.count ?? 0} users, ${scanCount.rows?.[0]?.count ?? 0} scans, ${scoreCount.rows?.[0]?.count ?? 0} scores`);
               
               // Log user details for deployment verification (first 5 users)
               const userSample = await sqlite.execute(`SELECT username, created_at FROM users ORDER BY created_at DESC LIMIT 5`);
@@ -97,7 +97,7 @@ export async function initializeDatabase() {
               }
               
               // CRITICAL: Create automatic backup before any initialization
-              if (userCount.rows[0].count > 0 || scanCount.rows[0].count > 0) {
+              if (Number(userCount.rows?.[0]?.count ?? 0) > 0 || Number(scanCount.rows?.[0]?.count ?? 0) > 0) {
                 console.log('🔒 Existing data detected - creating safety backup...');
                 await createDeploymentBackup();
               }
@@ -428,7 +428,7 @@ async function checkRecentBackups() {
     return {
       hasRecentBackup: false,
       backupCount: 0,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown backup check error'
     };
   }
 }
@@ -505,9 +505,9 @@ async function createDeploymentBackup() {
     return { success: true, path: backupPath, size: sizeKB };
     
   } catch (error) {
-    console.error('❌ Failed to create deployment backup:', error.message);
+    console.error('❌ Failed to create deployment backup:', error instanceof Error ? error.message : error);
     console.error('   Deployment will continue but without backup protection');
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown backup error' };
   }
 }
 
