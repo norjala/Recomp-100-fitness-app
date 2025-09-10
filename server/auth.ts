@@ -159,7 +159,7 @@ export const requireAuth: RequestHandler = async (req: any, res, next) => {
     const dbUser = await storage.getUser(sessionUser.id);
     if (!dbUser) {
       // User in session doesn't exist in database - clear session
-      req.session.destroy((err) => {
+      req.session.destroy((err: any) => {
         if (err) console.error("Session destruction error:", err);
       });
       return res.status(401).json({ 
