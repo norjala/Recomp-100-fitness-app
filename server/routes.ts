@@ -1091,6 +1091,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // TEMPORARY: Admin endpoint to upload fixed database (REMOVE AFTER USE)
+  app.post('/api/admin/database/upload', requireAuth, requireAdmin, upload.single('database'), async (req: any, res) => {
+    try {
+      const fs = await import('fs/promises');
+      const fsSync = await import('fs');
+      const path = await import('path');
+      const { getDatabasePath, getConfig } = await import('./config.js');
+
+      console.log('🔐 Admin database upload requested by:', req.user.username);
+
+      // Check if file was uploaded
+      if (!req.file) {
+        return res.status(400).json({ error: 'No database file provided' });
+      }
+
+      const dbPath = getDatabasePath();
+      const backupDir = getConfig().BACKUP_PATH;
+
+      // Validate the uploaded file is a SQLite database
+      const uploadedBuffer = req.file.buffer;
+      const sqliteHeader = 'SQLite format 3';
+      const headerString = uploadedBuffer.toString('utf8', 0, sqliteHeader.length);
+
+      if (headerString !== sqliteHeader) {
+        console.error('❌ Invalid file: Not a SQLite database');
+        return res.status(400).json({ error: 'Invalid file: Not a SQLite database' });
+      }
+
+      console.log(`✅ Valid SQLite database received (${Math.round(req.file.size / 1024)}KB)`);
+
+      // Create backup of current database
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const backupFilename = `fitness_challenge_BEFORE_UPLOAD_${timestamp}.db`;
+      const backupPath = path.default.join(backupDir, backupFilename);
+
+      // Ensure backup directory exists
+      await fs.mkdir(backupDir, { recursive: true });
+
+      // Backup current database
+      try {
+        await fs.copyFile(dbPath, backupPath);
+        console.log(`📦 Backup created: ${backupFilename}`);
+      } catch (error) {
+        console.error('❌ Failed to create backup:', error);
+        return res.status(500).json({ error: 'Failed to create backup before upload' });
+      }
+
+      // Replace database with uploaded file
+      try {
+        await fs.writeFile(dbPath, uploadedBuffer);
+        console.log(`✅ Database replaced successfully: ${dbPath}`);
+
+        // Verify the new database
+        const stats = await fs.stat(dbPath);
+        console.log(`✅ New database size: ${Math.round(stats.size / 1024)}KB`);
+
+        res.json({
+          success: true,
+          message: 'Database uploaded and replaced successfully',
+          backup: backupFilename,
+          size: Math.round(stats.size / 1024),
+          timestamp: new Date().toISOString()
+        });
+
+      } catch (error) {
+        console.error('❌ Failed to replace database:', error);
+
+        // Attempt to restore from backup
+        try {
+          await fs.copyFile(backupPath, dbPath);
+          console.log('✅ Restored from backup after failed upload');
+        } catch (restoreError) {
+          console.error('❌ CRITICAL: Failed to restore from backup!', restoreError);
+        }
+
+        return res.status(500).json({
+          error: 'Failed to replace database',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Database upload failed:', error);
+      res.status(500).json({
+        error: 'Database upload failed',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
