@@ -1,12 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
+import fs from "fs";
 import { storage } from "./storage.js";
 import { setupAuth } from "./auth.js";
 import { requireAuth, hashPassword } from "./auth.js";
 import { ObjectStorageService, ObjectNotFoundError, objectStorage } from "./objectStorage.js";
 import { insertUserSchema, insertDexaScanSchema } from "../shared/schema.js";
-import { getAdminUsernames, getConfig } from "./config.js";
+import { getAdminUsernames, getConfig, getDatabasePath } from "./config.js";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -98,12 +99,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get current user profile
+  app.get('/api/user', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
+    }
+  });
+
   // Update user target goals
   app.put('/api/user/targets', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const { targetBodyFatPercent, targetLeanMass } = req.body;
-      
+
       const updates: any = {};
       if (targetBodyFatPercent !== undefined && targetBodyFatPercent !== null && targetBodyFatPercent !== '') {
         updates.targetBodyFatPercent = Number(targetBodyFatPercent);
@@ -111,16 +129,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (targetLeanMass !== undefined && targetLeanMass !== null && targetLeanMass !== '') {
         updates.targetLeanMass = Number(targetLeanMass);
       }
-      
+
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ message: "At least one target goal must be provided" });
       }
-      
+
       const updatedUser = await storage.updateUser(userId, updates);
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user targets:", error);
       res.status(500).json({ message: "Failed to update target goals" });
+    }
+  });
+
+  // Update user profile (including gender)
+  app.put('/api/user/profile', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { gender, height, firstName, lastName, name } = req.body;
+
+      const updates: any = {};
+      if (gender !== undefined && ['male', 'female'].includes(gender)) {
+        updates.gender = gender;
+      }
+      if (height !== undefined) {
+        updates.height = height;
+      }
+      if (firstName !== undefined) {
+        updates.firstName = firstName;
+      }
+      if (lastName !== undefined) {
+        updates.lastName = lastName;
+      }
+      if (name !== undefined) {
+        updates.name = name;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "At least one profile field must be provided" });
+      }
+
+      const updatedUser = await storage.updateUser(userId, updates);
+
+      // If gender was updated, recalculate scores to apply correct multipliers
+      if (updates.gender) {
+        try {
+          // The score recalculation will happen automatically on next scan upload
+          // or we can trigger it via the existing scoring endpoint
+          console.log("Gender updated for user", userId, "- scores will be recalculated on next scan");
+        } catch (scoreError) {
+          console.error("Error recalculating scores after gender update:", scoreError);
+        }
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
     }
   });
 
@@ -265,6 +330,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         console.log(`✅ [${requestId}] User verified in database:`, userExists.username);
+
+        // Check if user has gender set (log warning but don't block)
+        if (!userExists.gender) {
+          console.warn(`⚠️  [${requestId}] User ${userExists.username} does not have gender set - scores may be inaccurate`);
+          console.warn(`⚠️  [${requestId}] Gender is required for accurate competition scoring`);
+        }
       } catch (userCheckError) {
         console.error(`❌ [${requestId}] Database connection error during user verification:`, userCheckError);
         
@@ -295,36 +366,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Extract profile fields before scan data validation (these are not part of scan schema)
+      const { gender, firstName, lastName, scanDate, bodyFatPercent, leanMass, totalWeight, ...scanBodyData } = req.body;
+
       // Enhanced scan data parsing and validation
       let scanData;
       try {
         console.log(`🔍 [${requestId}] Parsing and validating scan data...`);
-        
+
         // Pre-validate critical fields before schema validation
-        const { scanDate, bodyFatPercent, leanMass, totalWeight } = req.body;
-        
         if (!scanDate) {
           throw new Error('Scan date is required');
         }
-        
+
         const parsedDate = new Date(scanDate);
         if (isNaN(parsedDate.getTime())) {
           throw new Error('Invalid scan date format');
         }
-        
+
         // Check for reasonable date range (not too far in past/future)
         const now = new Date();
         const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
         const monthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        
+
         if (parsedDate < yearAgo || parsedDate > monthFromNow) {
           console.warn(`⚠️ [${requestId}] Scan date seems unusual: ${parsedDate.toISOString()}`);
         }
-        
+
         scanData = insertDexaScanSchema.parse({
-          ...req.body,
-          userId,
+          ...scanBodyData,
           scanDate: parsedDate,
+          bodyFatPercent,
+          leanMass,
+          totalWeight,
+          userId,
         });
         console.log(`✅ [${requestId}] Scan data validated successfully`);
         
@@ -424,18 +499,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Update user profile with name if provided (non-critical)
-      if (req.body.firstName && req.body.lastName) {
+      // Update user profile with name and gender if provided (non-critical)
+      // Note: These fields were extracted before schema validation above
+      const userUpdates: any = {};
+
+      if (firstName && lastName) {
+        userUpdates.firstName = firstName;
+        userUpdates.lastName = lastName;
+        userUpdates.name = `${firstName} ${lastName}`;
+      }
+
+      if (gender && ['male', 'female'].includes(gender)) {
+        userUpdates.gender = gender;
+      }
+
+      if (Object.keys(userUpdates).length > 0) {
         try {
-          console.log(`👤 [${requestId}] Updating user profile with name...`);
-          await storage.updateUser(userId, {
-            firstName: req.body.firstName,
-            lastName: req.body.lastName,
-            name: `${req.body.firstName} ${req.body.lastName}`,
-          });
-          console.log(`✅ [${requestId}] User profile updated with name`);
+          console.log(`👤 [${requestId}] Updating user profile with:`, Object.keys(userUpdates));
+          await storage.updateUser(userId, userUpdates);
+          console.log(`✅ [${requestId}] User profile updated successfully`);
+
+          // If gender was updated, note that scores will be recalculated
+          if (userUpdates.gender) {
+            console.log(`📊 [${requestId}] Gender updated to ${userUpdates.gender} - scores will be recalculated`);
+          }
         } catch (error) {
-          console.error(`⚠️ [${requestId}] Non-critical error updating user name:`, error);
+          console.error(`⚠️ [${requestId}] Non-critical error updating user profile:`, error);
           // Don't fail the whole request for this - it's not critical
         }
       }
@@ -557,16 +646,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedScan = await storage.updateDexaScan(scanId, updateData);
       
-      // Update user profile if name provided
+      // Update user profile if name or gender provided
+      const userUpdates: any = {};
+
       if (req.body.firstName && req.body.lastName) {
+        userUpdates.firstName = req.body.firstName;
+        userUpdates.lastName = req.body.lastName;
+        userUpdates.name = `${req.body.firstName} ${req.body.lastName}`;
+      }
+
+      if (req.body.gender && ['male', 'female'].includes(req.body.gender)) {
+        userUpdates.gender = req.body.gender;
+      }
+
+      if (Object.keys(userUpdates).length > 0) {
         try {
-          await storage.updateUser(userId, {
-            firstName: req.body.firstName,
-            lastName: req.body.lastName,
-            name: `${req.body.firstName} ${req.body.lastName}`,
-          });
+          await storage.updateUser(userId, userUpdates);
+          console.log(`✅ [${requestId}] User profile updated with:`, Object.keys(userUpdates));
+
+          // If gender was updated, note that scores will be recalculated
+          if (userUpdates.gender) {
+            console.log(`📊 [${requestId}] Gender updated to ${userUpdates.gender} - scores will be recalculated`);
+          }
         } catch (error) {
-          console.error("Error updating user name:", error);
+          console.error(`⚠️ [${requestId}] Error updating user profile:`, error);
         }
       }
       
@@ -865,6 +968,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  // TEMPORARY: Download production database (REMOVE AFTER USE)
+  app.get('/api/admin/download-database', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const dbPath = getDatabasePath();
+
+      console.log('🔽 Admin downloading production database:', dbPath);
+
+      // Check if database file exists
+      if (!fs.existsSync(dbPath)) {
+        return res.status(404).json({ error: 'Database file not found' });
+      }
+
+      // Set headers for file download
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="production_fitness_challenge.db"');
+      res.setHeader('Content-Length', fs.statSync(dbPath).size);
+
+      // Stream the file to the response
+      const fileStream = fs.createReadStream(dbPath);
+      fileStream.pipe(res);
+
+      fileStream.on('error', (error) => {
+        console.error('Error streaming database file:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to download database' });
+        }
+      });
+    } catch (error) {
+      console.error('Error downloading database:', error);
+      res.status(500).json({ error: 'Failed to download database' });
+    }
+  });
+
 
 
 
@@ -874,20 +1010,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fs = await import('fs/promises');
       const path = await import('path');
       const { getConfig } = await import('./config.js');
-      
+
       const config = getConfig();
       const backupDir = config.BACKUP_PATH;
-      
+
       try {
         // Check if backup directory exists
         await fs.access(backupDir);
         const backupFiles = await fs.readdir(backupDir);
-        
+
         // Filter for database backup files
-        const dbBackups = backupFiles.filter(file => 
+        const dbBackups = backupFiles.filter(file =>
           file.startsWith('fitness_challenge_backup_') && file.endsWith('.db')
         );
-        
+
         // Get details of most recent backup
         let latestBackup = null;
         if (dbBackups.length > 0) {
@@ -895,7 +1031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const latestFile = sortedBackups[0];
           const filePath = path.default.join(backupDir, latestFile);
           const stats = await fs.stat(filePath);
-          
+
           latestBackup = {
             filename: latestFile,
             created: stats.birthtime,
@@ -903,7 +1039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ageHours: Math.round((Date.now() - stats.birthtime.getTime()) / (1000 * 60 * 60))
           };
         }
-        
+
         res.json({
           status: 'available',
           backupDirectory: backupDir,
@@ -911,7 +1047,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           latestBackup,
           allBackups: dbBackups.slice(0, 10) // Last 10 backups
         });
-        
+
       } catch (fsError) {
         res.json({
           status: 'unavailable',
@@ -925,6 +1061,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'error',
         error: error instanceof Error ? error.message : 'Backup status check failed'
       });
+    }
+  });
+
+  // Admin endpoint to download production database for safe local testing
+  app.get('/api/admin/database/download', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const { getDatabasePath } = await import('./config.js');
+
+      console.log('🔐 Admin database download requested by:', req.user.username);
+
+      const dbPath = getDatabasePath();
+
+      // Verify database file exists
+      try {
+        await fs.access(dbPath);
+      } catch (error) {
+        console.error('❌ Database file not found:', dbPath);
+        return res.status(404).json({
+          error: 'Database file not found',
+          path: dbPath
+        });
+      }
+
+      // Get database file stats
+      const stats = await fs.stat(dbPath);
+      const filename = path.default.basename(dbPath);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const downloadFilename = `fitness_challenge_production_${timestamp}.db`;
+
+      console.log(`📦 Preparing database download: ${downloadFilename} (${Math.round(stats.size / 1024)}KB)`);
+
+      // Set headers for file download
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+      res.setHeader('Content-Length', stats.size.toString());
+      res.setHeader('X-Database-Original-Path', dbPath);
+      res.setHeader('X-Database-Size-KB', Math.round(stats.size / 1024).toString());
+
+      // Stream database file to response
+      const fsSync = await import('fs');
+      const readStream = fsSync.default.createReadStream(dbPath);
+
+      readStream.on('error', (error) => {
+        console.error('❌ Error streaming database:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to stream database file' });
+        }
+      });
+
+      readStream.on('end', () => {
+        console.log(`✅ Database download completed: ${downloadFilename}`);
+      });
+
+      readStream.pipe(res);
+
+    } catch (error) {
+      console.error('❌ Database download failed:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Failed to download database',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
     }
   });
 
