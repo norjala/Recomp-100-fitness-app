@@ -1,13 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
-import fs from "fs";
 import { storage } from "./storage.js";
 import { setupAuth } from "./auth.js";
 import { requireAuth, hashPassword } from "./auth.js";
 import { ObjectStorageService, ObjectNotFoundError, objectStorage } from "./objectStorage.js";
 import { insertUserSchema, insertDexaScanSchema } from "../shared/schema.js";
-import { getAdminUsernames, getConfig, getDatabasePath } from "./config.js";
+import { getAdminUsernames, getConfig } from "./config.js";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -967,43 +966,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
-  // TEMPORARY: Download production database (REMOVE AFTER USE)
-  app.get('/api/admin/download-database', requireAuth, requireAdmin, async (req: any, res) => {
-    try {
-      const dbPath = getDatabasePath();
-
-      console.log('🔽 Admin downloading production database:', dbPath);
-
-      // Check if database file exists
-      if (!fs.existsSync(dbPath)) {
-        return res.status(404).json({ error: 'Database file not found' });
-      }
-
-      // Set headers for file download
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', 'attachment; filename="production_fitness_challenge.db"');
-      res.setHeader('Content-Length', fs.statSync(dbPath).size);
-
-      // Stream the file to the response
-      const fileStream = fs.createReadStream(dbPath);
-      fileStream.pipe(res);
-
-      fileStream.on('error', (error) => {
-        console.error('Error streaming database file:', error);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Failed to download database' });
-        }
-      });
-    } catch (error) {
-      console.error('Error downloading database:', error);
-      res.status(500).json({ error: 'Failed to download database' });
-    }
-  });
-
-
-
-
   // Backup status endpoint for monitoring
   app.get('/api/admin/backup-status', requireAuth, requireAdmin, async (req, res) => {
     try {
@@ -1065,7 +1027,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to download production database for safe local testing
-  app.get('/api/admin/database/download', requireAuth, requireAdmin, async (req, res) => {
+  app.get('/api/admin/database/download', requireAuth, requireAdmin, async (req: any, res) => {
     try {
       const fs = await import('fs/promises');
       const path = await import('path');
