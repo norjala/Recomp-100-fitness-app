@@ -13,6 +13,7 @@ import {
   type LeaderboardEntry,
   type ContestantEntry,
 } from "../shared/schema.js";
+import { calculateFatLossScore, calculateMuscleGainScore } from "../shared/scoring-utils.js";
 import { db } from "./db.js";
 import { eq, desc, asc, and, isNull, isNotNull, ne, gt, sql } from "drizzle-orm";
 import { classifyScanDate } from "../shared/competition-config.js";
@@ -393,6 +394,7 @@ export class DatabaseStorage implements IStorage {
         progressPercent,
         displayName,
         latestScan,
+        baselineScan,
       });
     }
 
@@ -560,13 +562,14 @@ export class DatabaseStorage implements IStorage {
     console.log(`Lean mass % change: ${leanMassPercentChange.toFixed(2)}%`);
 
     // Calculate RAW scores using research-based formulas from PDF
-    const fatLossRawScore = this.calculateFatLossScore(
+    // Use shared utilities to ensure consistency and correct gender handling (case-insensitive)
+    const fatLossRawScore = calculateFatLossScore(
       baselineScan.bodyFatPercent, 
       latestScan.bodyFatPercent, 
       user.gender || "male", 
       baselineScan.bodyFatPercent
     );
-    const muscleGainRawScore = this.calculateMuscleGainScore(
+    const muscleGainRawScore = calculateMuscleGainScore(
       baselineScan.leanMass, 
       latestScan.leanMass, 
       user.gender || "male"
@@ -583,48 +586,6 @@ export class DatabaseStorage implements IStorage {
       fatLossRaw: fatLossRawScore,
       muscleGainRaw: muscleGainRawScore,
     });
-  }
-
-
-  private calculateFatLossScore(
-    startBF: number,
-    endBF: number,
-    gender: string,
-    startingBF: number
-  ): number {
-    if (endBF >= startBF) return 0; // No fat loss
-
-    const leanessMultiplier = this.getLeanessMultiplier(gender, startingBF);
-    const score = Math.log(startBF / endBF) * 100 * leanessMultiplier;
-    return Math.max(0, score);
-  }
-
-  private calculateMuscleGainScore(
-    startLM: number,
-    endLM: number,
-    gender: string
-  ): number {
-    const leanMassChange = ((endLM - startLM) / startLM) * 100;
-    if (leanMassChange <= 0) return 0; // No muscle gain
-
-    const genderMultiplier = gender === "female" ? 2.0 : 1.0;
-    return leanMassChange * 17 * genderMultiplier;
-  }
-
-  private getLeanessMultiplier(gender: string, bodyFatPercent: number): number {
-    if (gender === "male") {
-      if (bodyFatPercent < 15) return 1.4;
-      if (bodyFatPercent < 18) return 1.3;
-      if (bodyFatPercent < 21) return 1.2;
-      if (bodyFatPercent < 25) return 1.1;
-      return 1.0;
-    } else {
-      if (bodyFatPercent < 20) return 1.4;
-      if (bodyFatPercent < 23) return 1.3;
-      if (bodyFatPercent < 26) return 1.2;
-      if (bodyFatPercent < 30) return 1.1;
-      return 1.0;
-    }
   }
 
   async recalculateAllScores(): Promise<void> {

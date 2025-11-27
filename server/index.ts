@@ -223,9 +223,13 @@ app.use((req, res, next) => {
       });
     });
 
-    // Setup static file serving - vite development setup handled separately
-    const { serveStatic } = await import("./vite-production.js");
-    serveStatic(app);
+    // Setup static file serving - only in production mode
+    if (config.NODE_ENV === "production") {
+      const { serveStatic } = await import("./vite-production.js");
+      serveStatic(app);
+    } else {
+      log.info("Development mode: Skipping static file serving (expecting Vite dev server)");
+    }
 
     // Enhanced port management with conflict detection
     const startServer = async (preferredPort: number, maxRetries: number = 5): Promise<void> => {

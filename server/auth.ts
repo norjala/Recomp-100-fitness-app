@@ -78,6 +78,7 @@ export function setupAuth(app: Express) {
       const newUser = await storage.createUser({
         username: userData.username,
         password: hashedPassword,
+        ...(userData.gender && { gender: userData.gender }), // Include gender if provided
       });
 
       // Auto-login after registration

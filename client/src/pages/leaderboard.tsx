@@ -67,6 +67,15 @@ export default function Leaderboard() {
   }
 
 
+  // Helper function to check if user has multiple scans
+  const hasMultipleScans = (entry: LeaderboardEntry): boolean => {
+    if (!entry.baselineScan || !entry.latestScan) {
+      return false;
+    }
+    // Check if baseline and latest are different scans
+    return entry.baselineScan.id !== entry.latestScan.id;
+  };
+
   // Helper function to calculate projected scores for a user
   const calculateProjectedScore = (
     entry: LeaderboardEntry
@@ -78,10 +87,9 @@ export default function Leaderboard() {
       return null;
     }
 
-    // We need to get the baseline scan for this user to calculate projections correctly
-    // For now, we'll use latestScan as a fallback, but this should ideally use baselineScan
-    const baselineScan = entry.latestScan; // TODO: Get actual baseline scan
-    
+    // Use baseline scan for projection (use baselineScan if available, fallback to latestScan)
+    const baselineScan = entry.baselineScan || entry.latestScan;
+
     if (!baselineScan) {
       return null;
     }
@@ -156,7 +164,7 @@ export default function Leaderboard() {
         <div className="overflow-x-auto">
           <table
             className="w-full divide-y divide-gray-200"
-            style={{ minWidth: showProjectedScores ? "1460px" : "1060px" }}
+            style={{ minWidth: showProjectedScores ? "1200px" : "900px" }}
           >
             <thead className="bg-gray-50">
               <tr>
@@ -167,37 +175,31 @@ export default function Leaderboard() {
                   Name
                 </th>
                 <th
+                  className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-red-50"
+                  style={{ width: "100px" }}
+                >
+                  <div className="text-red-700 font-semibold">Baseline BF %</div>
+                </th>
+                <th
                   className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                   style={{ width: "100px" }}
                 >
-                  Body Fat %
+                  <div className="text-red-700 font-semibold">Latest BF %</div>
                 </th>
-                {showProjectedScores && (
-                  <th
-                    className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-red-50"
-                    style={{ width: "110px" }}
-                  >
-                    <span className="text-red-700 font-semibold">
-                      Target BF %
-                    </span>
-                  </th>
-                )}
+                <th
+                  className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-green-50"
+                  style={{ width: "120px" }}
+                >
+                  <div className="text-green-700 font-semibold">Baseline LM</div>
+                  <div className="text-xs text-gray-500 mt-0.5 font-normal">(lbs)</div>
+                </th>
                 <th
                   className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                   style={{ width: "120px" }}
                 >
-                  Lean Mass (lbs)
+                  <div className="text-green-700 font-semibold">Latest LM</div>
+                  <div className="text-xs text-gray-500 mt-0.5 font-normal">(lbs)</div>
                 </th>
-                {showProjectedScores && (
-                  <th
-                    className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-green-50"
-                    style={{ width: "130px" }}
-                  >
-                    <span className="text-green-700 font-semibold">
-                      Target LM (lbs)
-                    </span>
-                  </th>
-                )}
                 {showProjectedScores && (
                   <th
                     className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50"
@@ -207,7 +209,7 @@ export default function Leaderboard() {
                       Projected Score
                     </span>
                     <div className="text-xs text-blue-600 mt-1 font-normal">
-                      (raw score)
+                      (if goals met)
                     </div>
                   </th>
                 )}
@@ -218,9 +220,7 @@ export default function Leaderboard() {
                   style={{ width: "140px" }}
                 >
                   <span className="text-purple-700 font-semibold">
-                    {showProjectedScores
-                      ? "Current Score"
-                      : "Competition Score"}
+                    Competition Score
                   </span>
                   <div className="text-xs text-purple-600 mt-1 font-normal">
                     (raw score)
@@ -231,8 +231,24 @@ export default function Leaderboard() {
             <tbody className="bg-white divide-y divide-gray-200">
               {displayEntries.map((entry) => {
                 const isCurrentUser = currentUser?.id === entry.user.id;
-                const currentBodyFat = entry.latestScan?.bodyFatPercent || 0;
-                const currentLeanMass = entry.latestScan?.leanMass || 0;
+                const multipleScans = hasMultipleScans(entry);
+
+                // Get baseline and latest values with null safety
+                const baselineBodyFat = entry.baselineScan?.bodyFatPercent;
+                const latestBodyFat = entry.latestScan?.bodyFatPercent;
+                const baselineLeanMass = entry.baselineScan?.leanMass;
+                const latestLeanMass = entry.latestScan?.leanMass;
+
+                // Calculate changes for display
+                const bodyFatChange = baselineBodyFat && latestBodyFat && multipleScans
+                  ? latestBodyFat - baselineBodyFat
+                  : null;
+                const leanMassChange = baselineLeanMass && latestLeanMass && multipleScans
+                  ? latestLeanMass - baselineLeanMass
+                  : null;
+
+                // Only show projected scores for single-scan users
+                const showProjectedForUser = showProjectedScores && !multipleScans;
 
                 return (
                   <tr
@@ -271,52 +287,75 @@ export default function Leaderboard() {
                           </div>
                           <div className="text-xs text-gray-500">
                             Baseline:{" "}
-                            {entry.latestScan
+                            {entry.baselineScan
                               ? new Date(
-                                  entry.latestScan.scanDate
+                                  entry.baselineScan.scanDate
                                 ).toLocaleDateString()
                               : "N/A"}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-center">
-                      <span className="text-sm font-medium text-red-600">
-                        {currentBodyFat.toFixed(1)}%
-                      </span>
+                    {/* Baseline Body Fat % */}
+                    <td className="px-3 py-4 whitespace-nowrap text-center bg-red-50">
+                      {baselineBodyFat !== undefined ? (
+                        <span className="text-sm font-medium text-gray-700">
+                          {baselineBodyFat.toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">N/A</span>
+                      )}
                     </td>
-                    {showProjectedScores && (
-                      <td className="px-3 py-4 whitespace-nowrap text-center bg-red-50">
-                        {entry.user.targetBodyFatPercent ? (
-                          <span className="text-sm font-medium text-red-700">
-                            {entry.user.targetBodyFatPercent.toFixed(1)}%
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">
-                            No target
-                          </span>
-                        )}
-                      </td>
-                    )}
+                    {/* Latest Body Fat % */}
                     <td className="px-3 py-4 whitespace-nowrap text-center">
-                      <span className="text-sm font-medium text-green-600">
-                        {currentLeanMass.toFixed(0)} lbs
-                      </span>
+                      {latestBodyFat !== undefined ? (
+                        <div className="flex flex-col items-center">
+                          <span className="text-sm font-medium text-red-600">
+                            {latestBodyFat.toFixed(1)}%
+                          </span>
+                          {bodyFatChange !== null && (
+                            <span className={`text-xs font-medium ${
+                              bodyFatChange < 0 ? "text-green-600" : "text-red-600"
+                            }`}>
+                              {bodyFatChange > 0 ? "+" : ""}{bodyFatChange.toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">N/A</span>
+                      )}
                     </td>
-                    {showProjectedScores && (
-                      <td className="px-3 py-4 whitespace-nowrap text-center bg-green-50">
-                        {entry.user.targetLeanMass ? (
-                          <span className="text-sm font-medium text-green-700">
-                            {entry.user.targetLeanMass.toFixed(0)} lbs
+                    {/* Baseline Lean Mass */}
+                    <td className="px-3 py-4 whitespace-nowrap text-center bg-green-50">
+                      {baselineLeanMass !== undefined ? (
+                        <span className="text-sm font-medium text-gray-700">
+                          {baselineLeanMass.toFixed(0)} lbs
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">N/A</span>
+                      )}
+                    </td>
+                    {/* Latest Lean Mass */}
+                    <td className="px-3 py-4 whitespace-nowrap text-center">
+                      {latestLeanMass !== undefined ? (
+                        <div className="flex flex-col items-center">
+                          <span className="text-sm font-medium text-green-600">
+                            {latestLeanMass.toFixed(0)} lbs
                           </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">
-                            No target
-                          </span>
-                        )}
-                      </td>
-                    )}
-                    {showProjectedScores && (
+                          {leanMassChange !== null && (
+                            <span className={`text-xs font-medium ${
+                              leanMassChange > 0 ? "text-green-600" : "text-red-600"
+                            }`}>
+                              {leanMassChange > 0 ? "+" : ""}{leanMassChange.toFixed(1)} lbs
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">N/A</span>
+                      )}
+                    </td>
+                    {/* Projected Score - only for single-scan users */}
+                    {showProjectedForUser && (
                       <td className="px-3 py-4 whitespace-nowrap text-center bg-blue-50">
                         {(() => {
                           const projectedScore = calculateProjectedScore(entry);
@@ -357,19 +396,28 @@ export default function Leaderboard() {
                         })()}
                       </td>
                     )}
+                    {/* Competition Score */}
                     <td className="px-3 py-4 whitespace-nowrap text-center bg-purple-50">
-                      <div className="flex flex-col items-center">
-                        <span className="text-xl font-bold text-purple-700">
-                          {Math.round(entry.totalScore)}
-                        </span>
-                        <span className="text-xs text-purple-600 font-medium">
-                          PTS
-                        </span>
-                        <div className="text-xs text-gray-500 mt-1 space-y-0.5">
-                          <div>FLS: {Math.round(entry.fatLossScore)}</div>
-                          <div>MGS: {Math.round(entry.muscleGainScore)}</div>
+                      {multipleScans ? (
+                        <div className="flex flex-col items-center">
+                          <span className="text-xl font-bold text-purple-700">
+                            {Math.round(entry.totalScore)}
+                          </span>
+                          <span className="text-xs text-purple-600 font-medium">
+                            PTS
+                          </span>
+                          <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                            <div>FLS: {Math.round(entry.fatLossScore)}</div>
+                            <div>MGS: {Math.round(entry.muscleGainScore)}</div>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-400">
+                            Needs 2nd scan
+                          </span>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );

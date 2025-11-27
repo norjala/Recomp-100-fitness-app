@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { ScanClassificationWarning } from "@/components/scan-classification-warning";
@@ -27,6 +28,7 @@ const scanFormSchema = z.object({
   notes: z.string().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  gender: z.enum(["male", "female"]).optional(),
   // Target goals - optional fields
   targetBodyFatPercent: z.number().optional(),
   targetLeanMass: z.number().optional(),
@@ -49,6 +51,7 @@ export default function Upload() {
     scanName: '',
     firstName: '',
     lastName: '',
+    gender: '',
     scanImagePath: undefined as string | undefined,
     isBaseline: false,
     notes: '',
@@ -63,14 +66,46 @@ export default function Upload() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
 
+  // DEBUG: Force show gender field for testing
+  const [forceShowGender, setForceShowGender] = useState(false);
+
   // Query user's existing scans to determine if this is their first scan
   const { data: userScans = [], isLoading: scansLoading } = useQuery<DexaScan[]>({
     queryKey: ["/api/users", user?.id, "scans"],
     enabled: !!user?.id,
   });
 
+  // Query user profile to check if gender is set
+  const { data: userProfile, isLoading: userProfileLoading } = useQuery<any>({
+    queryKey: ["/api/user"],
+    enabled: !!user,
+  });
+
+  // Gender field debugging - comprehensive logging
+  useEffect(() => {
+    console.log('=== UPLOAD DEBUG - User Profile Loading ===');
+    console.log('user:', user);
+    console.log('userProfile:', userProfile);
+    console.log('userProfileLoading:', userProfileLoading);
+    console.log('userProfile?.gender:', userProfile?.gender);
+    console.log('typeof userProfile?.gender:', typeof userProfile?.gender);
+    console.log('userProfile?.gender === null:', userProfile?.gender === null);
+    console.log('userProfile?.gender === undefined:', userProfile?.gender === undefined);
+    console.log('!userProfile?.gender:', !userProfile?.gender);
+    console.log('isFirstScan:', isFirstScan);
+    console.log('(!userProfile?.gender || isFirstScan):', (!userProfile?.gender || isFirstScan));
+    console.log('==========================================');
+  }, [user, userProfile, userProfileLoading, isFirstScan]);
+
   const isFirstScan = userScans.length === 0;
   const needsTargetGoals = isFirstScan; // Show header only for first scan
+
+  // Pre-populate gender from user profile if available
+  useEffect(() => {
+    if (userProfile?.gender && !formData.gender) {
+      setFormData(prev => ({ ...prev, gender: userProfile.gender }));
+    }
+  }, [userProfile?.gender]);
 
   // Mutation to update user target goals
   const updateUserTargetsMutation = useMutation({
@@ -83,6 +118,17 @@ export default function Upload() {
     },
   });
 
+  const updateUserProfileMutation = useMutation({
+    mutationFn: async (data: { gender?: string; firstName?: string; lastName?: string }) => {
+      const response = await apiRequest("PUT", "/api/user/profile", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
+    },
+  });
+
   const createScanMutation = useMutation({
     mutationFn: async (data: ScanFormData) => {
       // If target goals are provided, update user targets first
@@ -92,9 +138,39 @@ export default function Upload() {
           targetLeanMass: data.targetLeanMass || user?.targetLeanMass || 0,
         });
       }
-      
-      // Remove target goals from scan data before sending
-      const { targetBodyFatPercent, targetLeanMass, ...scanData } = data;
+
+      // Update user profile with gender and name if provided
+      const profileUpdates: any = {};
+      if (data.gender) profileUpdates.gender = data.gender;
+      if (data.firstName) profileUpdates.firstName = data.firstName;
+      if (data.lastName) profileUpdates.lastName = data.lastName;
+
+      // Try to update profile first (preferred method)
+      let profileUpdateSucceeded = false;
+      if (Object.keys(profileUpdates).length > 0) {
+        try {
+          await updateUserProfileMutation.mutateAsync(profileUpdates);
+          profileUpdateSucceeded = true;
+        } catch (error) {
+          console.warn("Profile update failed, will include data in scan creation as fallback:", error);
+        }
+      }
+
+      // Prepare scan data - include gender and name as fallback if profile update failed
+      const { targetBodyFatPercent, targetLeanMass, ...scanDataBase } = data;
+      const scanData = { ...scanDataBase };
+
+      // Include profile data as fallback if the profile update failed
+      if (!profileUpdateSucceeded && data.gender) {
+        scanData.gender = data.gender;
+      }
+      if (!profileUpdateSucceeded && data.firstName) {
+        scanData.firstName = data.firstName;
+      }
+      if (!profileUpdateSucceeded && data.lastName) {
+        scanData.lastName = data.lastName;
+      }
+
       const response = await apiRequest("POST", "/api/scans", scanData);
       return response.json();
     },
@@ -124,6 +200,7 @@ export default function Upload() {
         scanName: '',
         firstName: '',
         lastName: '',
+        gender: '',
         scanImagePath: undefined as string | undefined,
         isBaseline: false,
         notes: '',
@@ -248,6 +325,7 @@ export default function Upload() {
           scanDate: extractedData.scanDate || prev.scanDate,
           firstName: extractedData.firstName || '',
           lastName: extractedData.lastName || '',
+          gender: extractedData.gender || prev.gender,
         }));
 
         const confidenceEmoji = extractedData.confidence > 0.7 ? '✅' : extractedData.confidence > 0.4 ? '⚠️' : '🔍';
@@ -313,7 +391,19 @@ export default function Upload() {
     }
   };
 
-  if (authLoading) {
+  // Enhanced loading state debugging
+  useEffect(() => {
+    console.log('=== UPLOAD LOADING STATES ===');
+    console.log('authLoading:', authLoading);
+    console.log('userProfileLoading:', userProfileLoading);
+    console.log('scansLoading:', scansLoading);
+    console.log('user exists:', !!user);
+    console.log('userProfile exists:', !!userProfile);
+    console.log('=============================');
+  }, [authLoading, userProfileLoading, scansLoading, user, userProfile]);
+
+  if (authLoading || userProfileLoading) {
+    console.log('UPLOAD: Showing loading due to:', { authLoading, userProfileLoading });
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
@@ -327,6 +417,31 @@ export default function Upload() {
 
   return (
     <div className="max-w-7xl mx-auto mobile-padding pb-20 md:pb-8 prevent-overflow">
+      {/* DEBUG PANEL - Remove after debugging */}
+      <div style={{
+        position: 'fixed',
+        top: '10px',
+        left: '10px',
+        background: '#000',
+        color: '#fff',
+        padding: '10px',
+        borderRadius: '5px',
+        fontSize: '12px',
+        zIndex: 9999,
+        maxWidth: '300px'
+      }}>
+        <div><strong>🔍 UPLOAD DEBUG PANEL</strong></div>
+        <div>authLoading: {String(authLoading)}</div>
+        <div>userProfileLoading: {String(userProfileLoading)}</div>
+        <div>scansLoading: {String(scansLoading)}</div>
+        <div>user exists: {String(!!user)}</div>
+        <div>userProfile exists: {String(!!userProfile)}</div>
+        <div>userProfile.gender: {String(userProfile?.gender)} ({typeof userProfile?.gender})</div>
+        <div>isFirstScan: {String(isFirstScan)}</div>
+        <div>formData.gender: {String(formData.gender)}</div>
+        <div>forceShowGender: {String(forceShowGender)}</div>
+      </div>
+
       <Card className="card-mobile">
         <CardContent className="p-4 md:p-6">
           <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 md:mb-6 flex items-center">
@@ -583,6 +698,92 @@ export default function Upload() {
                     />
                   </div>
                 </div>
+
+                {/* DEBUGGING: Force show gender field button */}
+                <div style={{ marginBottom: '10px', padding: '10px', background: '#fff3cd', border: '1px solid #ffeaa7', borderRadius: '5px' }}>
+                  <div style={{ fontSize: '12px', color: '#856404', marginBottom: '5px' }}>
+                    🔧 DEBUG TOOLS: Testing gender field visibility
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log('=== MANUAL TRIGGER DEBUG ===');
+                      console.log('Current userProfile:', userProfile);
+                      console.log('Toggling forceShowGender');
+                      setForceShowGender(prev => !prev);
+                    }}
+                    style={{
+                      padding: '5px 10px',
+                      background: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '3px',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {forceShowGender ? 'Hide' : 'Force Show'} Gender Field
+                  </button>
+                  <div style={{ fontSize: '10px', marginTop: '5px' }}>forceShowGender: {String(forceShowGender)}</div>
+                </div>
+
+                {/* Gender Selection - Show if not already set */}
+                {(() => {
+                  // More robust gender check - handle null, undefined, and empty string
+                  const gender = userProfile?.gender;
+                  const hasValidGender = gender && gender !== '' && gender !== null && gender !== undefined;
+                  const shouldShow = (!hasValidGender || isFirstScan);
+                  const isDataReady = !userProfileLoading && userProfile !== undefined;
+
+                  console.log('=== UPLOAD GENDER FIELD DEBUG ===');
+                  console.log('userProfile:', userProfile);
+                  console.log('userProfileLoading:', userProfileLoading);
+                  console.log('userProfile?.gender:', userProfile?.gender);
+                  console.log('gender variable:', gender);
+                  console.log('hasValidGender:', hasValidGender);
+                  console.log('isFirstScan:', isFirstScan);
+                  console.log('isDataReady:', isDataReady);
+                  console.log('shouldShow (!hasValidGender || isFirstScan):', shouldShow);
+                  console.log('Final condition (shouldShow && isDataReady):', shouldShow && isDataReady);
+                  console.log('===================================');
+
+                  // Add fallback: if we're still loading or unsure, show the field anyway
+                  const finalDecision = shouldShow && isDataReady;
+
+                  // Fallback safety: Always show if we don't have clear user data yet
+                  const fallbackShow = !userProfile && !userProfileLoading;
+
+                  console.log('fallbackShow (!userProfile && !userProfileLoading):', fallbackShow);
+                  console.log('forceShowGender:', forceShowGender);
+                  console.log('FINAL DECISION (finalDecision || fallbackShow || forceShowGender):', finalDecision || fallbackShow || forceShowGender);
+
+                  return finalDecision || fallbackShow || forceShowGender;
+                })() && (
+                  <div style={{ border: '2px solid red', padding: '8px', backgroundColor: '#ffe6e6' }}>
+                    <Label htmlFor="gender">
+                      Gender <span className="text-red-500">*</span>
+                      <span className="text-xs text-gray-500 ml-2">(Required for accurate scoring)</span>
+                    </Label>
+                    <div style={{ fontSize: '12px', color: 'red', marginBottom: '4px' }}>
+                      🔍 DEBUG: Field visible! userProfile.gender={String(userProfile?.gender)} (type: {typeof userProfile?.gender}) | formData.gender={String(formData.gender)} (type: {typeof formData.gender}) | isFirstScan={String(isFirstScan)}
+                    </div>
+                    <Select
+                      value={formData.gender || userProfile?.gender || ''}
+                      onValueChange={(value) => {
+                        console.log('Gender field onChange:', value);
+                        handleInputChange('gender', value);
+                      }}
+                    >
+                      <SelectTrigger id="gender">
+                        <SelectValue placeholder="Select your gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Target Goals Section - Show for first scan */}
                 {needsTargetGoals && (

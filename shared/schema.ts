@@ -85,6 +85,7 @@ export const loginUserSchema = z.object({
 export const registerUserSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  gender: z.enum(["male", "female"]).optional(), // Optional for backward compatibility
 });
 
 export const insertDexaScanSchema = createInsertSchema(dexaScans, {
@@ -142,6 +143,7 @@ export interface LeaderboardEntry {
   progressPercent: number;
   displayName: string;
   latestScan?: DexaScan;
+  baselineScan?: DexaScan;
 }
 
 export interface ContestantEntry {

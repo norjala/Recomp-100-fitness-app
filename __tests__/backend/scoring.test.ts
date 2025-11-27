@@ -1,6 +1,6 @@
 // Critical scoring system tests - ensuring fair competition results
 import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
-import { createTestDb, createTestUser, createTestDexaScan, type TestDbInstance } from '../setup/testDb.js';
+import { createTestDb, createTestUser, createTestDexaScan, type TestDbInstance } from '../setup/testDb';
 import { DatabaseStorage } from '../../server/storage.js';
 
 describe('Scoring System - Critical Business Logic', () => {
@@ -208,7 +208,7 @@ describe('Scoring System - Critical Business Logic', () => {
 
       // Scores should be recalculated and improved
       const updatedScoring = await storage.getScoringData(user.id);
-      expect(updatedScoring!.totalScore).toBeGreaterThan(initialScoring!.totalScore);
+      expect(updatedScoring!.totalScore).toBeGreaterThan(initialScoring!.totalScore || 0);
     });
   });
 

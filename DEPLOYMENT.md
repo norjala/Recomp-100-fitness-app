@@ -3,8 +3,9 @@
 ## Railway Deployment (Recommended)
 
 Railway is the recommended hosting platform for this application due to its excellent support for:
+
 - SQLite database persistence
-- File storage with persistent volumes  
+- File storage with persistent volumes
 - Free tier suitable for 10 users
 - Easy deployment and scaling
 
@@ -12,7 +13,8 @@ Railway is the recommended hosting platform for this application due to its exce
 
 1. **Create Railway Account**: Sign up at [railway.app](https://railway.app)
 
-2. **Connect Repository**: 
+2. **Connect Repository**:
+
    ```bash
    railway login
    railway link
@@ -28,6 +30,7 @@ Railway is the recommended hosting platform for this application due to its exce
 Create these environment variables in Railway dashboard or use `railway variables set`:
 
 #### Required Variables
+
 ```bash
 SESSION_SECRET=your-secure-64-character-session-secret
 NODE_ENV=production
@@ -42,10 +45,11 @@ ADMIN_USERNAMES=YourUsername,AdminUser2
 
 # Competition Dates
 COMPETITION_START_DATE=2025-08-04T00:00:00.000Z
-COMPETITION_END_DATE=2025-11-26T23:59:59.999Z
+COMPETITION_END_DATE=2025-11-14T23:59:59.999Z
 ```
 
 #### Security & Performance
+
 ```bash
 RATE_LIMIT_REQUESTS_PER_MINUTE=50
 CORS_ORIGINS=https://your-app.railway.app
@@ -53,6 +57,7 @@ FORCE_HTTPS=true
 ```
 
 #### File Upload Settings
+
 ```bash
 MAX_FILE_SIZE=52428800
 ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,application/pdf
@@ -97,6 +102,7 @@ The application includes comprehensive health monitoring:
 - **Backup Status**: `GET /api/admin/backup-status` (admin only)
 
 Monitor your application with:
+
 ```bash
 curl https://your-app.railway.app/api/health
 ```
@@ -104,12 +110,15 @@ curl https://your-app.railway.app/api/health
 ### Database Management
 
 #### Automatic Database Initialization
+
 The application automatically:
+
 - Creates database file on first run
 - Runs migrations
 - Sets up required tables
 
 #### Manual Database Operations
+
 ```bash
 # Initialize database
 railway run npm run db:init
@@ -127,18 +136,21 @@ railway run npm run db:migrate
 ### File Upload System
 
 The production deployment includes:
+
 - **Real file storage** in persistent `/app/uploads` directory
 - **Multer-based uploads** with size and type validation
 - **Secure file serving** with authentication requirements
 - **Automatic cleanup** and backup integration
 
 File upload endpoints:
+
 - `POST /api/objects/upload` - Upload files (authenticated)
 - `GET /api/objects/uploads/:filename` - Download files (authenticated)
 
 ### Security Features
 
 Production deployment includes:
+
 - **Helmet** security headers
 - **CORS** configuration for your domain
 - **Rate limiting** (configurable)
@@ -149,7 +161,9 @@ Production deployment includes:
 ### Monitoring & Logging
 
 #### Health Checks
+
 Monitor application health with detailed metrics:
+
 ```json
 {
   "status": "healthy",
@@ -163,8 +177,8 @@ Monitor application health with detailed metrics:
     "filesCount": 23
   },
   "system": {
-    "memory": {"used": "125MB", "total": "256MB"},
-    "platform": "linux", 
+    "memory": { "used": "125MB", "total": "256MB" },
+    "platform": "linux",
     "nodeVersion": "v20.x"
   },
   "competition": {
@@ -175,7 +189,9 @@ Monitor application health with detailed metrics:
 ```
 
 #### Backup Monitoring
+
 Admin users can check backup status:
+
 ```bash
 curl -H "Cookie: your-session-cookie" \
   https://your-app.railway.app/api/admin/backup-status
@@ -184,6 +200,7 @@ curl -H "Cookie: your-session-cookie" \
 ### Scaling Considerations
 
 For 10 users, the free Railway tier provides:
+
 - **512MB RAM** (sufficient)
 - **1GB persistent storage** (adequate for database + files)
 - **100GB bandwidth** (more than enough)
@@ -194,15 +211,18 @@ For 10 users, the free Railway tier provides:
 #### Common Issues
 
 1. **Database Connection Errors**
+
    - Check `/api/health` endpoint
    - Verify `DATABASE_URL` points to persistent volume
 
 2. **File Upload Issues**
+
    - Check `UPLOADS_DIR` environment variable
    - Verify persistent volume is mounted
    - Check file size limits (`MAX_FILE_SIZE`)
 
 3. **Session Issues**
+
    - Verify `SESSION_SECRET` is set and secure
    - Check cookie settings in production
 
@@ -212,6 +232,7 @@ For 10 users, the free Railway tier provides:
    - Review rate limiting settings
 
 #### Debug Commands
+
 ```bash
 # Check logs
 railway logs
@@ -229,16 +250,19 @@ railway variables
 ### Alternative Hosting Options
 
 #### Render.com
+
 - Similar to Railway with free tier
 - Good SQLite support
 - Easy deployment process
 
 #### Fly.io
+
 - More complex setup
 - Better for advanced users
 - Persistent volumes available
 
 #### DigitalOcean App Platform
+
 - $5/month minimum
 - Good performance
 - Managed databases available
@@ -246,15 +270,18 @@ railway variables
 ### Cost Analysis
 
 **Railway (Recommended for 10 users)**
+
 - Free tier: $0/month with $5 usage credits
 - Estimated usage: < $2/month for 10 active users
 - Persistent storage included
 
 **Render**
+
 - Free tier with limitations
 - $7/month for production features
 
 **Traditional VPS**
+
 - $5-10/month for basic VPS
 - Requires more setup and maintenance
 
@@ -284,12 +311,14 @@ After deployment, verify:
 ### Maintenance
 
 #### Regular Tasks
+
 - Monitor health endpoints weekly
 - Check backup status monthly
 - Review database size quarterly
 - Update dependencies as needed
 
 #### Backup Strategy
+
 - Database backups: Automatic via health monitoring
 - File uploads: Stored in persistent volumes
 - Environment variables: Document separately
@@ -298,14 +327,14 @@ After deployment, verify:
 
 ## Development vs Production Differences
 
-| Feature | Development | Production |
-|---------|------------|------------|
-| Database | Local SQLite | Persistent SQLite on Railway |
-| File Storage | Local `./uploads` | Persistent `/app/uploads` |
-| Sessions | In-memory | Secure with rolling sessions |
-| HTTPS | Optional | Required |
-| Monitoring | Basic | Comprehensive health checks |
-| Rate Limiting | Disabled | Enabled |
-| Error Handling | Detailed errors | Sanitized responses |
+| Feature        | Development       | Production                   |
+| -------------- | ----------------- | ---------------------------- |
+| Database       | Local SQLite      | Persistent SQLite on Railway |
+| File Storage   | Local `./uploads` | Persistent `/app/uploads`    |
+| Sessions       | In-memory         | Secure with rolling sessions |
+| HTTPS          | Optional          | Required                     |
+| Monitoring     | Basic             | Comprehensive health checks  |
+| Rate Limiting  | Disabled          | Enabled                      |
+| Error Handling | Detailed errors   | Sanitized responses          |
 
 This deployment guide ensures your fitness challenge application is production-ready with proper security, monitoring, and scalability for your 10-user base.

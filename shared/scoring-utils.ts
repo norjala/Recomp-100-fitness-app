@@ -109,7 +109,8 @@ export function projectScores(
   baselineScan: ScanData,
   targetBodyFat: number,
   targetLeanMass: number,
-  gender: Gender
+  gender: Gender,
+  _unused?: any // Added for backwards compatibility
 ): ScoreBreakdown {
   // Calculate percentage changes needed to reach targets
   const fatLossPercent = calculatePercentageChange(baselineScan.bodyFatPercent, targetBodyFat);
